@@ -1,32 +1,38 @@
 {
-  "type": "module",
-  "name": "bun-repl",
-  "version": "1.0.0-fix.3",
-  "description": "Experimental unofficial REPL for Bun",
-  "main": "src/repl.ts",
-  "scripts": {
-    "start": "bun run src/repl.ts --",
-    "test": "bun run --silent check && bun run --silent start",
-    "deeptest": "bun run --silent lint && bun run --silent test",
-    "check": "bun tsc",
-    "lint": "bun eslint src/**/*.ts",
-    "lint-fix": "bun run --silent lint -- --fix"
-  },
-  "author": "jhmaster",
-  "license": "MIT",
-  "dependencies": {
-    "@swc/core": "^1.2.224",
-    "pretty-ms": "^8.0.0"
-  },
-  "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.32.0",
-    "@typescript-eslint/parser": "^5.32.0",
-    "bun-types": "^0.1.5",
-    "eslint": "^8.21.0",
-    "eslint-plugin-unicorn": "^43.0.2",
-    "typescript": "^4.7.4"
-  },
-  "bin": {
-    "repl": "./bun-repl-cli.sh"
-  }
+    "type": "module",
+    "name": "bun-repl",
+    "version": "1.0.1",
+    "description": "Experimental unofficial REPL for Bun",
+    "main": "src/repl.ts",
+    "scripts": {
+        "start": "bun run src/repl.ts --",
+        "test": "bun run --silent check && bun run --silent start",
+        "deeptest": "bun run --silent lint && bun run --silent test",
+        "check": "bun tsc",
+        "lint": "bun eslint src/**/*.ts",
+        "lint-fix": "bun run --silent lint -- --fix"
+    },
+    "author": "jhmaster",
+    "license": "MIT",
+    "homepage": "https://www.npmjs.com/package/bun-repl",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/jhmaster2000/bun-repl.git"
+    },
+    "keywords": ["bun", "repl", "cli", "ts", "js"],
+    "dependencies": {
+        "@swc/core": "^1.2.224",
+        "pretty-ms": "^8.0.0"
+    },
+    "devDependencies": {
+        "@typescript-eslint/eslint-plugin": "^5.32.0",
+        "@typescript-eslint/parser": "^5.32.0",
+        "bun-types": "^0.1.5",
+        "eslint": "^8.21.0",
+        "eslint-plugin-unicorn": "^43.0.2",
+        "typescript": "^4.7.4"
+    },
+    "bin": {
+        "repl": "./bun-repl-cli.sh"
+    }
 }

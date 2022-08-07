@@ -1,4 +1,7 @@
-# bun-repl
+# bun-repl [![GitHub version][github-image]][github-url] [![GitHub code size in bytes][size-image]][github-url] [![license][license-image]][license-url]
+
+
+
 Experimental unofficial REPL for Bun
 
 Powered by Bun itself with the help of `swc` and JSC's `ShadowRealm` API
@@ -35,3 +38,9 @@ Please keep in mind this is unofficial and experimental software built on top of
     * Reason: Usage of `eval()` which has its own lexical scope.
 * Some modules fail to resolve their imports within the REPL, such as `fs/promises`.
     * Reason: Unknown...
+
+[github-url]:https://github.com/jhmaster2000/bun-repl
+[github-image]:https://img.shields.io/github/package-json/v/jhmaster2000/bun-repl.svg?color=gray
+[license-url]:https://github.com/jhmaster2000/bun-repl/blob/master/LICENSE.md
+[license-image]:https://img.shields.io/npm/l/bun-repl.svg
+[size-image]:https://img.shields.io/github/languages/code-size/jhmaster2000/bun-repl.svg
