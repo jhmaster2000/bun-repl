@@ -10,7 +10,7 @@ bun add -g bun-repl
 
 ## Usage
 ```
-bun repl
+bun run repl
 ```
 Type `.help` within the REPL for a list of commands.
 
