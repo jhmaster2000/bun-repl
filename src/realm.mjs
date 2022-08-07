@@ -9,7 +9,7 @@ import util from 'util';
 import path from 'path';
 import swcrc from './swcrc';
 
-/** 
+/**
  * @typedef BunError
  * @property {string} name
  * @property {number} line

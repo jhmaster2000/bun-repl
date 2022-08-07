@@ -25,7 +25,7 @@ const swcrc: swc.Options = {
         transform: {
             useDefineForClassFields: false,
             treatConstEnumAsEnum: false,
-            optimizer: { 
+            optimizer: {
                 simplify: false,
                 globals: { vars: {
                     $__SHADOWREALM_EVAL_RETURN_VALUE__: '$__SHADOWREALM_EVAL_RETURN_VALUE___'

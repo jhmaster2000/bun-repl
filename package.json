@@ -1,7 +1,7 @@
 {
     "type": "module",
     "name": "bun-repl",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Experimental unofficial REPL for Bun",
     "main": "src/repl.ts",
     "scripts": {
@@ -33,6 +33,7 @@
         "typescript": "^4.7.4"
     },
     "bin": {
-        "repl": "./bun-repl-cli.sh"
+        "repl": "./bun-repl-cli.sh",
+        "bun-repl": "./bun-repl-cli2.sh"
     }
 }
