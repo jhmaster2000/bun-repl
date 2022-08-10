@@ -6,7 +6,7 @@ const colors = {
     blink: '\x1B[5m',
     invert: '\x1B[7m',
     invisible: '\x1B[8m',
-  
+
     reset: '\x1B[0m',
     //noBold: '\x1B[21m', (broken)
     noDim: '\x1B[22m',
@@ -14,7 +14,7 @@ const colors = {
     noBlink: '\x1B[25m',
     noInvert: '\x1B[27m',
     visible: '\x1B[28m',
-  
+
     black: '\x1B[30m',
     red: '\x1B[31m',
     green: '\x1B[32m',

@@ -30,6 +30,7 @@ Press `↓`+`Enter` to travel back down.
 * Top level import syntax supported (`import fs from 'fs'`)
 * Import either CommonJS or ESM local files and packages into the REPL
 * Node.js REPL special underscore variables provided (`_` and `_error`)
+* Node.js `repl` module polyfill
 * Execution history (`↑` `↓`)
 * REPL Commands (`.command`)
 
@@ -50,8 +51,6 @@ PRs are welcome to help fix any of the items below or anything else.
     * Reason: `prompt()` automatically inserts a space at the end, with no way to turn it off. Yes, quite annoying.
 * To preserve lexically-scoped variables (`let` & `const`) across REPL runs, they need to be converted to `var`, which disrupts their behavior, especially `const`'s
     * Reason: Usage of `eval()` which has its own lexical scope.
-* Some modules fail to resolve their imports within the REPL, such as `fs/promises`.
-    * Reason: Unknown...
 
 [github-url]:https://github.com/jhmaster2000/bun-repl
 [github-image]:https://img.shields.io/github/package-json/v/jhmaster2000/bun-repl.svg?color=gray

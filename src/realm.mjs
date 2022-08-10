@@ -59,7 +59,7 @@ Object.defineProperties(REPLGlobal, {
     format: {
         value: function replFormat(/** @type {any} */ val, /** @type {boolean=} */ isError = false) {
             try {
-                if (SafeGet(val, 'name') === 'ResolveError') 
+                if (SafeGet(val, 'name') === 'ResolveError')
                     return [`${$.red}ResolveError${$.reset}${$.dim}: ${$.reset}${$.whiteBright}${SafeCall(
                         REPLGlobal.StringReplace, SafeGet(val, 'message'), / ".+" from ".+"$/,
                         ` ${$.blueBright}"${SafeGet(val, 'specifier') ?? '<unresolved>'}"${$.whiteBright} from ${$.cyan+process.cwd()}/${swcrc.filename}`

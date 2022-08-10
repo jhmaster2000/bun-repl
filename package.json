@@ -3,7 +3,7 @@
   "name": "bun-repl",
   "version": "1.0.3",
   "description": "Experimental unofficial REPL for Bun",
-  "main": "src/repl.ts",
+  "main": "src/module/repl.ts",
   "scripts": {
     "start": "bun run src/repl.ts -- --",
     "test": "bun run --silent check && bun run --silent start",
@@ -14,7 +14,7 @@
   },
   "author": "jhmaster",
   "license": "MIT",
-  "homepage": "https://www.npmjs.com/package/bun-repl",
+  "homepage": "https://github.com/jhmaster2000/bun-repl#readme",
   "bugs": {
     "url": "https://github.com/jhmaster2000/bun-repl/issues"
   },

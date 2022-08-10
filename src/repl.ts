@@ -31,16 +31,17 @@ interface PartialNPMResponse {
 }
 
 if (process.argv.includes('--update')) {
-    console.log('Checking for updates...');
-    const res: PartialNPMResponse = await (await fetch("https://registry.npmjs.org/bun-repl", {
+    console.log(`${$.dim}Checking for updates...${$.reset}`);
+    const res: PartialNPMResponse = await (await fetch('https://registry.npmjs.org/bun-repl', {
         headers: { Accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*' }
     })).json();
     const { latest } = res['dist-tags'];
     if (pkgjson.version === latest) {
-        console.log(`No updates found. You are already on the latest version of bun-repl (${latest})`);
+        console.log(`${$.gray}No updates found. You are already on the latest version of bun-repl (${$.greenBright+latest+$.gray})${$.reset}`);
         process.exit(0);
     } else {
-        console.log(`Updates found: ${pkgjson.version} -> ${latest}\nRun "bun add -g bun-repl" to update.`);
+        console.log(`${$.whiteBright}Updates found: ${$.yellow+$.bold+pkgjson.version+$.whiteBright} -> ${$.greenBright+latest+$.reset}
+${$.whiteBright}Run "${$.cyanBright}bun add -g bun-repl${$.whiteBright}" to update.${$.reset}`);
         process.exit(0);
     }
 }
