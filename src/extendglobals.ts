@@ -12,12 +12,19 @@ declare global {
         revision?: string;
     }
 
+    interface BunError {
+        name: string;
+        message: string;
+        line: number;
+        column: number;
+    }
+
     interface ResolveError {
         referrer?: string;
         message?: string;
         name?: 'ResolveError';
         specifier?: string;
-        importKind?: 'stmt';
+        importKind?: string;
         position?: number;
         convertToType?: string;
         toString(): string;
@@ -25,22 +32,39 @@ declare global {
     const ResolveError: ResolveError;
 
     interface PackageJson {
-        type?: "module" | "commonjs",
-        name: string,
-        version: string,
-        description?: string,
-        main?: "src/repl.ts",
-        scripts?: Record<string, string>,
-        author?: string,
-        license?: string,
-        dependencies?: Record<string, string>,
-        devDependencies?: Record<string, string>,
+        type?: "module" | "commonjs";
+        name: string;
+        version: string;
+        description?: string;
+        main?: string;
+        author?: string;
+        license?: string;
+        homepage?: string;
+        scripts?: Record<string, string>;
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
         bin?: Record<string, string>;
+        keywords?: string[];
+        bugs?: {
+            url: string;
+        }
+        repository?: {
+            type: string;
+            url: string;
+        }
     }
+
+    interface ImportMeta {
+        require: (moduleIdentifier: string) => unknown;
+    }
+    function require(moduleIdentifier: string): unknown;
 }
 
 ShadowRealm.prototype.execFile = async function (filepath) {
-    try { await this.importValue(filepath, ''); } catch { void 0; }
+    try { await this.importValue(filepath, ''); } catch (err) {
+        if ((<Error>err).message.trim() !== '%ShadowRealm%.importValue requires |exportName| to exist in the |specifier|')
+            throw err; // Unexpected error should not be suppressed.
+    }
 };
 
 export { };

@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 
+import './extendglobals';
+import $ from './colors';
 import swc from '@swc/core';
 import util from 'util';
 import path from 'path';
@@ -7,9 +9,8 @@ import prettyms from 'pretty-ms';
 import Transpiler from './transpiler';
 import REPLState from './replstate';
 import REPLHistory from './replhistory';
-import './extendglobals';
-
-const pkgjson = await Bun.file(path.join(import.meta.dir, '..', 'package.json')).json() as PackageJson;
+import pkgjson from './pkgjson';
+import { debuglog, IS_DEBUG } from './debug';
 
 const helpFlag = process.argv.includes('-h') || process.argv.includes('--help');
 if (helpFlag) {
@@ -23,8 +24,26 @@ if (versionFlag) {
     process.exit(0);
 }
 
-const IS_DEBUG = process.argv.includes('--debug');
-const debuglog = IS_DEBUG ? console.debug : () => void 0;
+interface PartialNPMResponse {
+    'dist-tags': {
+        latest: string
+    }
+}
+
+if (process.argv.includes('--update')) {
+    console.log('Checking for updates...');
+    const res: PartialNPMResponse = await (await fetch("https://registry.npmjs.org/bun-repl", {
+        headers: { Accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*' }
+    })).json();
+    const { latest } = res['dist-tags'];
+    if (pkgjson.version === latest) {
+        console.log(`No updates found. You are already on the latest version of bun-repl (${latest})`);
+        process.exit(0);
+    } else {
+        console.log(`Updates found: ${pkgjson.version} -> ${latest}\nRun "bun add -g bun-repl" to update.`);
+        process.exit(0);
+    }
+}
 
 const realm = new ShadowRealm();
 // Inject realm globals
@@ -36,6 +55,7 @@ const transpiler = new Transpiler();
 
 console.log(`Welcome to Bun.js ${process.version} (${process.revision ? 'canary-'+process.revision : 'release'})
 Type ".help" for more information.`);
+debuglog(`${$.dim}INFO: Debug mode enabled.${$.reset}`);
 
 MainLoop: for (;;) {
 
@@ -65,7 +85,7 @@ MainLoop: for (;;) {
     replHistory.resetPos();
 
     let transpiled: string = transpiler.preAdjust(userInput);
-    debuglog('preAdjust:', transpiled.trim());
+    debuglog($.dim+'preprocess:', transpiled.trim()+$.reset);
     try {
         transpiled = transpiler.transpile(transpiled);
     } catch (error) {
@@ -73,19 +93,34 @@ MainLoop: for (;;) {
         console.log(message.trim().split(/\u2570\u2500+/gm)[0].trim());
         continue;
     }
-    debuglog('transpile:', transpiled.trim());
+    debuglog($.dim+'transpile:', transpiled.trim()+$.reset);
     transpiled = transpiler.postAdjust(transpiled);
-    debuglog('postAdjust:', transpiled.trim());
-    const evalIn = util.inspect(transpiled);
-    realm.evaluate(`
-    let $__SHADOWREALM_EVAL_RETURN_VALUE__;
+    debuglog($.dim+'postprocess:', transpiled.trim()+$.reset);
+
     try {
-        $__SHADOWREALM_EVAL_RETURN_VALUE__ = eval(${evalIn});
+        const evalIn = util.inspect(transpiled);
+        realm.evaluate(`//'use strict'; (Strict mode currently causes issues that need fixing)
+        let $__SHADOWREALM_EVAL_RETURN_VALUE__ = [];
+        try {
+            $__SHADOWREALM_EVAL_RETURN_VALUE__[0] = (async function*() {}).constructor['@@REPLGlobal'].eval(${evalIn});
+        } catch (error) {
+            $__SHADOWREALM_EVAL_RETURN_VALUE__[0] = _error = error;
+            $__SHADOWREALM_EVAL_RETURN_VALUE__[1] = true; // isError
+        }
+        if (!$__SHADOWREALM_EVAL_RETURN_VALUE__[1]) _ = $__SHADOWREALM_EVAL_RETURN_VALUE__[0];
+        const REPLGlobal = (async function*(){}).constructor['@@REPLGlobal'];
+        const [val, err] = REPLGlobal.format($__SHADOWREALM_EVAL_RETURN_VALUE__[0], $__SHADOWREALM_EVAL_RETURN_VALUE__[1]);
+        if (err) {
+            REPLGlobal.console.error('Fatal REPL Formatting Error:');
+            REPLGlobal.console.error(err);
+            REPLGlobal.console.error('This is most likely a bug, please report it at ${pkgjson.bugs?.url ?? 'the project\'s GitHub repository'}');
+        } else REPLGlobal.console.log(val);
+        `);
     } catch (error) {
-        $__SHADOWREALM_EVAL_RETURN_VALUE__ = _error = error;
+        console.error('Fatal REPL Evaluation Error:');
+        console.error(error);
+        console.error(`This is most likely a bug, please report it at ${pkgjson.bugs?.url ?? 'the project\'s GitHub repository'}`);
     }
-    if ($__SHADOWREALM_EVAL_RETURN_VALUE__ !== _error) _ = $__SHADOWREALM_EVAL_RETURN_VALUE__;
-    globalThis['@@replFmt']($__SHADOWREALM_EVAL_RETURN_VALUE__);`);
 }
 
 function printHelp(): void {
@@ -104,6 +139,7 @@ function printCLIHelp(): void {
 Options:
     -h, --help     = Display this message.
     -v, --version  = Show installed bun-repl version.
+    --update       = Check for bun-repl updates.
     --debug        = Print debug information while running.
 
 Environment variables:
@@ -113,6 +149,7 @@ Environment variables:
 function printInfo(): void {
     console.log(`bun-repl v${pkgjson.version}
     Installed at: ${path.join(import.meta.dir, '..')}
+    Bun version: ${process.version}
     SWC version: ${swc.version as string}
     Color mode: ${Bun.enableANSIColors}
     Debug mode: ${IS_DEBUG}

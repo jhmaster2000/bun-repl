@@ -28,7 +28,7 @@ const swcrc: swc.Options = {
             optimizer: {
                 simplify: false,
                 globals: { vars: {
-                    $__SHADOWREALM_EVAL_RETURN_VALUE__: '$__SHADOWREALM_EVAL_RETURN_VALUE___'
+                    repl: '(async function*() {}).constructor["@@REPLGlobal"].REPL'
                 } }
             }
         },

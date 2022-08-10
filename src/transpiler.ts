@@ -33,7 +33,7 @@ export default class Transpiler extends swc.Compiler {
                     if (info.varname) str += `void ${info.varname};`;
                     if (info.destructuredVars) info.destructuredVars.forEach(variable => {
                         const match = variable.match(/[^ \n\t]+[ \n\t]+as[ \n\t]+([^ \n\t]+)/);
-                        str += `void ${match ? match[1] : variable}`;
+                        str += `void ${match ? match[1] : variable};`;
                     });
                     return str;
                 });
@@ -49,11 +49,25 @@ export default class Transpiler extends swc.Compiler {
                     const info = JSON.parse(infoStr) as replTranspiledImportInfo;
                     let str = `const ${requireVar} = require("${requireStr}");`;
                     if (info.varname) str += `var ${info.varname} = ${requireVar};`;
-                    if (info.destructuredVars) info.destructuredVars.forEach(variable => {
-                        const match = variable.match(/([^ \n\t]+)[ \n\t]+as[ \n\t]+([^ \n\t]+)/);
-                        if (match) str += `var ${match[2]} = ${requireVar}.${match[1]};`;
-                        else str += `var ${variable} = ${requireVar}.${variable};`;
-                    });
+                    if (info.destructuredVars) {
+                        let ifstr = 'if(!(';
+                        let delstr = ')){';
+                        info.destructuredVars.forEach(variable => {
+                            let exportStr = variable;
+                            const match = variable.match(/([^ \n\t]+)[ \n\t]+as[ \n\t]+([^ \n\t]+)/);
+                            if (match) {
+                                variable = match[2];
+                                exportStr = match[1];
+                                str += `var { ${exportStr}: ${variable} } = ${requireVar};`;
+                            } else str += `var { ${variable} } = ${requireVar};`;
+                            ifstr += `((async function*(){}).constructor['@@REPLGlobal'].temp.$v="${exportStr}") in ${requireVar}&&`;
+                            delstr += `delete (async function*(){}).constructor['@@REPLGlobal'].global["${variable}"];`;
+                        });
+                        const errmsg = `The requested module '${requireStr}' does not provide an export named '\${(async function*(){}).constructor['@@REPLGlobal'].temp.$v}'`;
+                        delstr += `throw new (async function*(){}).constructor['@@REPLGlobal'].Error(\`${errmsg}\`);};`;
+                        ifstr = ifstr.slice(0, -2);
+                        str += ifstr + delstr;
+                    }
                     return str + '\n';
                 });
     }
