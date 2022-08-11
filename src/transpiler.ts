@@ -18,7 +18,7 @@ export default class Transpiler extends swc.Compiler {
     }
 
     // REPL-specific adjustments needed for the code to work in a REPL context. (Ran before transpile)
-    preAdjust(code: string): string {
+    preprocess(code: string): string {
         return code
             .replace(/import(?:(?:(?:[ \n\t]+([^ *\n\t{},]+)[ \n\t]*(?:,|[ \n\t]+))?([ \n\t]*\{(?:[ \n\t]*[^ \n\t"'{}]+[ \n\t]*,?)+\})?[ \n\t]*)|[ \n\t]*\*[ \n\t]*as[ \n\t]+([^ \n\t{}]+)[ \n\t]+)from[ \n\t]*(?:['"])([^'"\n]+)(['"])/g,
                 ($0, defaultVar?: string, destructuredVars?: string, wildcardVar?: string, moduleIdentifier: string = '') => {
@@ -40,7 +40,7 @@ export default class Transpiler extends swc.Compiler {
     }
 
     // REPL-specific adjustments needed for the code to work in a REPL context. (Ran after transpile)
-    postAdjust(code: string): string {
+    postprocess(code: string): string {
         return code
             .replace(/(?:let|const) ([A-Za-z_$\d]+? ?=.)/g,
                 ($0, varname: string) => 'var ' + varname)

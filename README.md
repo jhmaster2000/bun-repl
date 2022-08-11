@@ -20,9 +20,7 @@ Pass the `-h` or `--help` CLI option for a list of all options.
 
 Type `.help` within the REPL for a list of commands.
 
-Press `↑`+`Enter` to travel up the execution history.
-
-Press `↓`+`Enter` to travel back down.
+Press `↑` and `↓` to travel up or down the execution history.
 
 ## Features
 
@@ -42,14 +40,8 @@ PRs are welcome to help fix any of the items below or anything else.
 * Top level await is not supported.
     * Reason: Usage of `eval()`
 * Multi-line inputs are not supported.
-    * Reason: Same as below.
-* Pressing `←` and `→` to traverse the input with the cursor is not supported.
-    * Reason: Same as below.
-* The execution history is buggy to navigate and doesn't support backspacing past the history entry.
-    * Reason: Bun's current lack of support for event-based streams limits us to `prompt()`, which provides little to no control over the input as its being written. This also makes it impossible to intercept keypresses/combinations.
-* There is a space between the execution history entry and your appended code.
-    * Reason: `prompt()` automatically inserts a space at the end, with no way to turn it off. Yes, quite annoying.
-* To preserve lexically-scoped variables (`let` & `const`) across REPL runs, they need to be converted to `var`, which disrupts their behavior, especially `const`'s
+    * Reason: The library used for prompts (`rustybun`) doesn't support this.
+* To preserve lexically-scoped variables (`let` & `const`) across REPL runs, they need to be converted to `var`, which disrupts their behavior, especially `const`'s (This also requires using non-strict mode)
     * Reason: Usage of `eval()` which has its own lexical scope.
 
 [github-url]:https://github.com/jhmaster2000/bun-repl

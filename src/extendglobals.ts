@@ -54,6 +54,12 @@ declare global {
         }
     }
 
+    interface PartialNPMResponse {
+        'dist-tags': {
+            latest: string
+        }
+    }
+
     interface ImportMeta {
         require: (moduleIdentifier: string) => unknown;
     }

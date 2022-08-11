@@ -61,4 +61,9 @@ if (!Bun.enableANSIColors) {
 //for (const color in colors) console.log(colors[color as keyof typeof colors], color, colors.reset);
 //for (const color in bgColors) console.log(bgColors[color as keyof typeof bgColors], color, colors.reset);
 
-export default { ...colors, bg: bgColors };
+function bool(bool: boolean, important: boolean = false) {
+    if (bool) return `${colors.greenBright}true${colors.reset}`;
+    else return `${important ? colors.redBright : colors.gray}false${colors.reset}`;
+}
+
+export default { ...colors, bg: bgColors, bool };

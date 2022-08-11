@@ -16,10 +16,10 @@ export function SafeGet(obj: any, key: string | number | symbol): any {
 }
 
 /**
- * Safely call an object's method.
+ * Safely call a function on an object as the `this`.
  * If an error occurs, just treat it as non-existent.
  */
-export function SafeCall<F extends (...x: any[]) => any>(fn: F, thisArg: any, ...args: Parameters<F>): ReturnType<F> | undefined {
+export function SafeThiscall<F extends (...x: any[]) => any>(fn: F, thisArg: any, ...args: Parameters<F>): ReturnType<F> | undefined {
     try {
         return fn?.apply?.(thisArg, args);
     } catch {

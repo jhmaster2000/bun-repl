@@ -2,7 +2,8 @@
 // Polyfill of the Node.js "repl" module (WIP)
 
 import $ from '../colors';
-import util from 'util';
+import bun from 'bun';
+import { SafeInspect } from '../utils';
 
 class NotImplementedError extends Error {
     constructor(method: string) {
@@ -56,7 +57,7 @@ module repl {
     const REPLWriterOptionsDefaults = {
         showHidden: false,
         depth: 2,
-        colors: Bun.enableANSIColors,
+        colors: bun.enableANSIColors,
         customInspect: true,
         showProxy: true,
         maxArrayLength: 100,
@@ -72,19 +73,20 @@ module repl {
         options: typeof REPLWriterOptionsDefaults;
     }
 
-    export const writer: REPLWriterFunction = function writer(val: any): string {
-        return util.inspect(val, (<REPLWriterFunction>writer).options);
-    };
-    writer.options = new Proxy(REPLWriterOptionsDefaults, {
-        set(target, p, value) {
-            console.warn(`${$.yellow+$.dim}(warning) repl.writer.options are currently not all fully respected by the REPL.${$.reset}`);
-            // @ts-expect-error Temporary warning Proxy
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            target[p] = value;
-            return true;
-        }
+    export const writer = function writer(val: any): string {
+        return (SafeInspect(val, (<REPLWriterFunction>writer).options) ?? bun.inspect(val));
+    } as REPLWriterFunction;
+    Object.defineProperty(writer, 'options', {
+        value: new Proxy(REPLWriterOptionsDefaults, {
+            set(target, p, value) {
+                console.warn(`${$.yellow+$.dim}(warning) repl.writer.options are currently not all fully respected by the REPL.${$.reset}`);
+                // @ts-expect-error Temporary warning Proxy
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                target[p] = value;
+                return true;
+            }
+        }), enumerable: true
     });
-
 }
 
 // For verifying all builtin modules

@@ -7,10 +7,11 @@ import util from 'util';
 import path from 'path';
 import prettyms from 'pretty-ms';
 import Transpiler from './transpiler';
-import REPLState from './replstate';
-import REPLHistory from './replhistory';
+import REPLManager from './replmanager';
 import pkgjson from './pkgjson';
 import { debuglog, IS_DEBUG } from './debug';
+
+debuglog(process.argv);
 
 const helpFlag = process.argv.includes('-h') || process.argv.includes('--help');
 if (helpFlag) {
@@ -22,12 +23,6 @@ const versionFlag = process.argv.includes('-v') || process.argv.includes('--vers
 if (versionFlag) {
     console.log(`bun-repl ${pkgjson.version}`);
     process.exit(0);
-}
-
-interface PartialNPMResponse {
-    'dist-tags': {
-        latest: string
-    }
 }
 
 if (process.argv.includes('--update')) {
@@ -46,26 +41,61 @@ ${$.whiteBright}Run "${$.cyanBright}bun add -g bun-repl${$.whiteBright}" to upda
     }
 }
 
-const realm = new ShadowRealm();
-// Inject realm globals
-await realm.execFile('./realm.mjs');
+let evalFlag = process.argv.indexOf('-e');
+if (evalFlag === -1) evalFlag = process.argv.indexOf('--eval');
+let printFlag = process.argv.indexOf('-p');
+if (printFlag === -1) printFlag = process.argv.indexOf('--print');
+if (evalFlag !== -1 && printFlag !== -1) {
+    console.error(`bun-repl: Incompatible options "${$.whiteBright}--eval${$.red}" and "${$.whiteBright}--print${$.red}"`);
+    console.error(`For more information try ${$.whiteBright}--help${$.reset}`);
+    process.exit(0);
+}
+const singleshot = evalFlag !== -1 || printFlag !== -1;
+const singleshotCode = process.argv.slice((evalFlag !== -1 ? evalFlag : printFlag) + 1).join(' ');
 
-const replState = new REPLState();
-const replHistory = new REPLHistory();
+const validFlags = [
+    '-h', '--help', '-v', '--version', '--update', '--debug', '-e', '--eval', '-p', '--print'
+] as const;
+if (process.argv.length > 2) {
+    for (const arg of process.argv.slice(2)) {
+        if (['-e', '--eval', '-p', '--print'].includes(arg)) break;
+        if (validFlags.includes(arg as typeof validFlags[0])) continue;
+        console.error(`bun-repl: Unknown option "${$.whiteBright+arg+$.red}"`);
+        console.error(`For more information try ${$.whiteBright}--help${$.reset}`);
+        process.exit(0);
+    }
+}
+
+const realm = new ShadowRealm();
+const repl = new REPLManager();
 const transpiler = new Transpiler();
 
-console.log(`Welcome to Bun.js ${process.version} (${process.revision ? 'canary-'+process.revision : 'release'})
-Type ".help" for more information.`);
-debuglog(`${$.dim}INFO: Debug mode enabled.${$.reset}`);
+// Prepare realm environment
+await realm.execFile('./realm.mjs');
 
-MainLoop: for (;;) {
+if (!singleshot) {
+    console.log(
+        `Welcome to Bun.js ${process.version} (${process.revision ? 'canary-' + process.revision : 'release'})\n` +
+        `Type ".help" for more information.`
+    );
+    debuglog(`${$.dim}INFO: Debug mode enabled.${$.reset}`);
+}
 
-    let userInput = prompt(`>${replState.historyEntry ? ' ' + replState.historyEntry : ''}`)?.trim();
+MainLoop: do {
+    const userInput = singleshot ? singleshotCode : repl.promptline();
+    if (!userInput) {
+        if (singleshot) {
+            console.error(`bun-repl: Option "${$.whiteBright+(evalFlag !== -1 ? '--eval' : '--print')+$.red}" requires a value.`);
+            console.error(`For more information try ${$.whiteBright}--help${$.reset}`);
+            process.exit(0);
+        } else continue;
+    }
+    if (userInput === 'undefined') {
+        console.log($.gray+userInput+$.reset);
+        continue;
+    }
 
-    userInput ??= replState.historyEntry ? '' : 'undefined';
-    if (replState.historyEntry) userInput = replState.historyEntry + userInput;
-
-    if (userInput.startsWith('.')) {
+    if (userInput.startsWith('.') && !singleshot) {
         const command = userInput.slice(1).split(/[ \t]+/)[0];
         switch (command) {
             case 'exit': process.exit(0); break;
@@ -73,19 +103,12 @@ MainLoop: for (;;) {
             case 'info': printInfo(); continue MainLoop;
             case 'clear': console.clear(); continue MainLoop;
             default:
-                console.error(`Unknown REPL command ".${command}", type ".help" for more information.`);
+                console.error(`Unknown REPL command "${$.whiteBright}.${command}${$.red}", type "${$.whiteBright}.help${$.red}" for more information.`);
                 continue MainLoop;
         }
     }
 
-    if (userInput.endsWith('\u001B[A')) { replState.historyEntry = replHistory.consume(); continue; }
-    if (userInput.endsWith('\u001B[B')) { replState.historyEntry = replHistory.unconsume(); continue; }
-
-    replState.historyEntry = '';
-    replHistory.add(userInput);
-    replHistory.resetPos();
-
-    let transpiled: string = transpiler.preAdjust(userInput);
+    let transpiled: string = transpiler.preprocess(userInput);
     debuglog($.dim+'preprocess:', transpiled.trim()+$.reset);
     try {
         transpiled = transpiler.transpile(transpiled);
@@ -95,7 +118,7 @@ MainLoop: for (;;) {
         continue;
     }
     debuglog($.dim+'transpile:', transpiled.trim()+$.reset);
-    transpiled = transpiler.postAdjust(transpiled);
+    transpiled = transpiler.postprocess(transpiled);
     debuglog($.dim+'postprocess:', transpiled.trim()+$.reset);
 
     try {
@@ -115,44 +138,49 @@ MainLoop: for (;;) {
             REPLGlobal.console.error('Fatal REPL Formatting Error:');
             REPLGlobal.console.error(err);
             REPLGlobal.console.error('This is most likely a bug, please report it at ${pkgjson.bugs?.url ?? 'the project\'s GitHub repository'}');
-        } else REPLGlobal.console.log(val);
+        } else if (${!singleshot || printFlag !== -1}) REPLGlobal.console.log(val);
         `);
     } catch (error) {
         console.error('Fatal REPL Evaluation Error:');
         console.error(error);
         console.error(`This is most likely a bug, please report it at ${pkgjson.bugs?.url ?? 'the project\'s GitHub repository'}`);
     }
-}
-
-function printHelp(): void {
-    console.log(`Commands:
-    .help  = Print this message.
-    .info  = Print REPL information.
-    .clear = Clear the screen.
-    .exit  = Exit the REPL.
-
-    Press Ctrl+C or Ctrl+Z to forcefully terminate the REPL.`);
-}
+} while (!singleshot);
 
 function printCLIHelp(): void {
     console.log(`Usage: bun-repl [options]
 
 Options:
-    -h, --help     = Display this message.
-    -v, --version  = Show installed bun-repl version.
-    --update       = Check for bun-repl updates.
-    --debug        = Print debug information while running.
+    -h, --help               Display this message.
+    -v, --version            Show installed bun-repl version.
+    -p, --print <...>        Evaluates given code, prints result and exits.
+    -e, --eval <...>         Evaluates given code and silently exits.
+    --update                 Check for bun-repl updates.
+    --debug                  Print debug information while running.
+
+* Options with <...> as argument must be passed last.
 
 Environment variables:
-    None`);
+    BUN_REPL_PROMPT          A string to override the default "> " prompt with.
+    BUN_REPL_MODE            Either "sloppy" or "strict" (Not implemented)`);
+}
+
+function printHelp(): void {
+    console.log(`Commands & keybinds:
+    .help     Print this message.
+    .info     Print REPL information.
+    .clear    Clear the screen. ${$.gray}(Ctrl+L)${$.reset}
+    .exit     Exit the REPL. ${$.gray}(Ctrl+C / Ctrl+D)${$.reset}`);
 }
 
 function printInfo(): void {
     console.log(`bun-repl v${pkgjson.version}
-    Installed at: ${path.join(import.meta.dir, '..')}
+    Installed at: ${$.cyan+path.join(import.meta.dir, '..')+$.reset}
     Bun version: ${process.version}
-    SWC version: ${swc.version as string}
-    Color mode: ${Bun.enableANSIColors}
-    Debug mode: ${IS_DEBUG}
-    Current session uptime: ${prettyms(performance.now())}`);
+    SWC version: v${swc.version as string}
+    Color mode: ${$.bool(Bun.enableANSIColors)}
+    Debug mode: ${$.bool(IS_DEBUG)}
+    Current session uptime: ${$.yellow+prettyms(performance.now())+$.reset}`);
 }
+
+process.exit(0); // Prevents a segfault when exiting
