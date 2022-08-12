@@ -1,9 +1,8 @@
 /* eslint-disable no-undef */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/restrict-plus-operands */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
+/// <reference types="bun-types"/>
 
 // This file is executed once at the start of the REPL within its ShadowRealm.
 // Primarily used to inject values into the REPL's ShadowRealm global objects.
@@ -12,24 +11,52 @@
 
 import './extendglobals';
 import $ from './colors';
+import utl from './utl';
 import bun from 'bun';
 import path from 'path';
 import swcrc from './swcrc';
 import { debuglog } from './debug';
-import { SafeGet, SafeThiscall, SafeInspect } from './utils';
-import REPL, { bunPrefixedModules, nodePrefixedModules } from './module/repl';
+import { SafeGet, SafeInspect, Primordial } from './utils';
+import repl, { bunPrefixedModules, nodePrefixedModules } from './module/repl';
 
+const originalproxy = Proxy;
 Object.defineProperties(globalThis, {
     /** Stores the last REPL result. */
     _: { value: undefined, writable: true },
     /** Stores the last REPL error thrown. */
-    _error: { value: undefined, writable: true }
+    _error: { value: undefined, writable: true },
+    Proxy: {
+        value: Object.defineProperty(function Proxy(target, handler) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+            if (!new.target) return (Reflect.get(utl, 'Proxy'))(target, handler);
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+            return new (Reflect.get(utl, 'Proxy'))(target, handler);
+        }, 'revocable', { value: originalproxy.revocable }),
+        writable: false, configurable: false, enumerable: false
+    },
+    /** Patch require so it works in a REPL context (use `process.cwd()` instead of `import.meta.dir` for resolution) */
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore Intellisense keeps conflicting with @types/node here even though its not included
+    require: {
+        value: function require(/** @type {string} */ moduleID) {
+            if (REPLGlobal.ArrayIncludes(bunPrefixedModules, moduleID)) throw { name: 'ResolveError', message: `Built-in Bun module should have "bun:" prefix` };
+            if (REPLGlobal.ArrayIncludes(nodePrefixedModules, moduleID)) moduleID = `node:${moduleID}`;
+            if (moduleID === 'repl' || moduleID === 'node:repl') return repl; // polyfill
+            if (moduleID === 'bun') return bun; // workaround
+            if (moduleID[0] === '.' || moduleID[0] === '/') {
+                moduleID = path.resolve(REPLGlobal.process.cwd(), moduleID);
+            }
+            debuglog((`${$.dim}Importing: ${$.blueBright+moduleID+$.reset}`));
+            return import.meta.require(moduleID);
+        }, writable: false, configurable: false, enumerable: false
+    }
 });
+Reflect.deleteProperty(globalThis, '__internalIsCommonJSNamespace');
 
 // By managing our own secret "global" object hidden away in an obscure constructor
 // instead of using globalThis, we avoid crashing if the user decides to destroy or
 // tamper with globalThis in any way such as `globalThis = null` among other things
-const REPLGlobalHolder = (async function*() {}).constructor;
+const REPLGlobalHolder = (async function*(){}).constructor;
 Object.defineProperty(REPLGlobalHolder, '@@REPLGlobal', { value: {} });
 /** @type {REPLGlobal} */
 const REPLGlobal = Reflect.get(REPLGlobalHolder, '@@REPLGlobal');
@@ -43,34 +70,34 @@ Object.defineProperties(REPLGlobal, {
     format: {
         value: function replFormat(/** @type {any} */ val, /** @type {boolean=} */ isError = false) {
             try {
-                if (SafeGet(val, 'name') === 'ResolveError')
-                    return [`${$.red}ResolveError${$.reset}${$.dim}: ${$.reset}${$.whiteBright}${SafeThiscall(
-                        REPLGlobal.StringReplace, SafeGet(val, 'message'), / ".+" from ".+"$/,
+                if (SafeGet(val, 'name') === 'ResolveError') return [
+                    `${$.red}ResolveError${$.reset}${$.dim}: ${$.reset}${$.whiteBright}${REPLGlobal.StringReplace(
+                        SafeGet(val, 'message') || `Failed to resolve import "?" from "?"`, / ".+" from ".+"$/,
                         ` ${$.blueBright}"${SafeGet(val, 'specifier') ?? '<unresolved>'}"${$.whiteBright} from ${$.cyan+REPLGlobal.process.cwd()}/${swcrc.filename}`
-                    ) ?? SafeGet(val, 'message') ?? val+''}${$.reset}`, null];
-                if (val instanceof REPLGlobal.Error) return [$.red + (
+                    )}${$.reset}`, null
+                ];
+
+                try { if (val instanceof REPLGlobal.Error) return [
                     `${$.red}${SafeGet(val, 'name') ?? 'Error (anonymous)'}${$.reset+$.dim}: ${$.reset+$.whiteBright}` +
-                    `${SafeGet(val, 'message') ?? ''}\n${$.reset+$.dim}      at ${$.reset+$.cyan}` +
-                    `${path.join(REPLGlobal.process.cwd(), swcrc.filename ?? '(anonymous)')}${$.reset+$.dim}:${$.reset+$.yellow}` +
-                    `${SafeGet(val, 'line') || 0}${$.reset+$.dim}:${$.yellow}${(SafeGet(val, 'column') || 1) - 1}`
-                ) + $.reset, null];
-                if (isError) return [`${$.red}Uncaught ${$.whiteBright}${bun.inspect(val)}${$.reset}`, null];
-                if (typeof val === 'string') return [`${$.green}'${ SafeThiscall(REPLGlobal.StringReplace, val, /'/g, "\\'")}'${$.reset}`, null];
-                if (typeof val === 'function' && SafeThiscall(REPLGlobal.StringSlice, val+'', 0, 5) === 'class') {
-                    const inspected = SafeInspect(val, REPLGlobal.REPL.writer.options) ?? bun.inspect(val);
-                    return [SafeThiscall(REPLGlobal.StringReplace, inspected, '[Function: ', '[class ') ?? inspected, null];
+                    `${ REPLGlobal.StringReplace(
+                        REPLGlobal.StringReplace(SafeGet(val, 'message')??'', /\(async function\*\(\) ?\{\}\)\.constructor\[["'`]@@REPLGlobal["'`]\]\.REPL/g, 'repl'),
+                        /\(async function\*\(\) ?\{\}\)\.constructor\[["'`]@@REPLGlobal["'`]\]/g, 'REPLGlobal')}\n` +
+                    `${$.reset+$.dim}      at ${$.reset+$.cyan}${path.join(REPLGlobal.process.cwd(), swcrc.filename ?? '(anonymous)')}${$.reset+$.dim}:` +
+                    `${$.reset+$.yellow}${SafeGet(val, 'line') || 0}${$.reset+$.dim}:${$.yellow}${(SafeGet(val, 'column') || 1) - 1}${$.reset}`, null];
+                } catch (err) {
+                    if (REPLGlobal.StringSlice(SafeGet(err, 'message') ?? '', 0, 30) === 'Proxy has already been revoked') {
+                        return REPLGlobal.format(err);
+                    } else throw err; // should not happen
                 }
-                if (
-                    typeof val === 'object' && SafeThiscall(REPLGlobal.ObjectToString, val) === '[object Object]' ||
-                    SafeGet(val, REPLGlobal.Symbol.toStringTag) === 'Module'
-                ) return [SafeInspect(val, REPLGlobal.REPL.writer.options) ?? val, null];
-                return [val, null]; // Delegate formatting to console.log since Bun.inspect won't output colors
+
+                if (isError) return [`${$.red}Uncaught ${$.whiteBright}${SafeInspect(val, REPLGlobal.REPL.writer.options)}${$.reset}`, null];
+                return [SafeInspect(val, REPLGlobal.REPL.writer.options, true), null];
             } catch (error) {
                 return [null, /** @type Error */ (error)];
             }
         }
     },
-    REPL: { value: REPL },
+    REPL: { value: repl },
     temp: { value: {} },
     eval: { value: globalThis.eval },
     global: { value: globalThis },
@@ -78,37 +105,8 @@ Object.defineProperties(REPLGlobal, {
     Symbol: { value: Symbol },
     console: { value: { ...console } },
     process: { value: { ...process } },
-    StringSlice: { value: String.prototype.slice },
-    StringReplace: { value: String.prototype.replace },
-    ArrayIncludes: { value: Array.prototype.includes },
-    ObjectToString: { value: Object.prototype.toString },
+    StringSlice: { value: Primordial(String.prototype.slice) },
+    StringReplace: { value: Primordial(String.prototype.replace) },
+    ArrayIncludes: { value: Primordial(Array.prototype.includes) },
+    ObjectToString: { value: Primordial(Object.prototype.toString) },
 });
-
-/**
- * @typedef REPLGlobal
- * @property {typeof REPL} REPL
- * @property {typeof globalThis} global
- * @property {typeof eval} eval
- * @property {Record<any, any>} temp
- * @property {Process} process
- * @property {(v: any, isError?: boolean) => [string, null] | [null, Error]} format
- * @property {typeof console} console
- * @property {ErrorConstructor} Error
- * @property {SymbolConstructor} Symbol
- * @property {typeof String.prototype.slice} StringSlice
- * @property {(find: string | RegExp, value: string) => string} StringReplace
- * @property {typeof Array.prototype.includes} ArrayIncludes
- * @property {typeof Object.prototype.toString} ObjectToString
-*/
-
-/** Patch require so it works in a REPL context (use `process.cwd()` instead of `import.meta.dir` for resolution) */
-// @ts-expect-error Intellisense keeps conflicting with @types/node here even though its not included
-globalThis.require = (/** @type {string} */ moduleID) => {
-    if (SafeThiscall(REPLGlobal.ArrayIncludes, bunPrefixedModules, moduleID)) throw { name: 'ResolveError', message: `Built-in Bun module should have "bun:" prefix` };
-    if (SafeThiscall(REPLGlobal.ArrayIncludes, nodePrefixedModules, moduleID)) moduleID = `node:${moduleID}`;
-    if (moduleID[0] === '.' || moduleID[0] === '/') {
-        moduleID = path.resolve(REPLGlobal.process.cwd(), moduleID);
-    }
-    debuglog((`${$.dim}Importing: ${$.blueBright+moduleID+$.reset}`));
-    return import.meta.require(moduleID);
-};

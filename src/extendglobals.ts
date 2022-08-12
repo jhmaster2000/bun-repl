@@ -1,4 +1,10 @@
+import repl from './module/repl';
+
+type globalType = typeof globalThis;
+
 declare global {
+    const globalThis: globalType;
+
     interface ShadowRealm {
         /**
          * Even though `ShadowRealm.importValue` throws an error when the requested export isn't found,
@@ -64,6 +70,24 @@ declare global {
         require: (moduleIdentifier: string) => unknown;
     }
     function require(moduleIdentifier: string): unknown;
+
+    interface REPLGlobal {
+        REPL: typeof repl;
+        global: typeof globalThis;
+        eval: typeof eval;
+        temp: Record<any, any>;
+        process: Process;
+        format: (v: any, isError?: boolean) => [string, null] | [null, Error]
+        console: typeof console;
+        Error: ErrorConstructor;
+        Symbol: SymbolConstructor;
+        StringReplace: Primordial<string, (find: string | RegExp, value: string) => string>;
+        StringSlice: Primordial<string, typeof String.prototype.slice>;
+        ArrayIncludes: Primordial<Array<any>, typeof Array.prototype.includes>;
+        ObjectToString: Primordial<any, typeof Object.prototype.toString>;
+    }
+
+    type Primordial<T, F extends (...x: any[]) => any> = (thisArg: T, ...args: Parameters<F>) => ReturnType<F>;
 }
 
 ShadowRealm.prototype.execFile = async function (filepath) {

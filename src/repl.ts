@@ -122,11 +122,11 @@ MainLoop: do {
     debuglog($.dim+'postprocess:', transpiled.trim()+$.reset);
 
     try {
-        const evalIn = util.inspect(transpiled);
+        const evalIn = util.inspect(transpiled); // Inspect for appropriate string quotes selection
         realm.evaluate(`//'use strict'; (Strict mode currently causes issues that need fixing)
         let $__SHADOWREALM_EVAL_RETURN_VALUE__ = [];
         try {
-            $__SHADOWREALM_EVAL_RETURN_VALUE__[0] = (async function*() {}).constructor['@@REPLGlobal'].eval(${evalIn});
+            $__SHADOWREALM_EVAL_RETURN_VALUE__[0] = (async function*(){}).constructor['@@REPLGlobal'].eval(${evalIn});
         } catch (error) {
             $__SHADOWREALM_EVAL_RETURN_VALUE__[0] = _error = error;
             $__SHADOWREALM_EVAL_RETURN_VALUE__[1] = true; // isError
@@ -161,8 +161,9 @@ Options:
 * Options with <...> as argument must be passed last.
 
 Environment variables:
-    BUN_REPL_PROMPT          A string to override the default "> " prompt with.
-    BUN_REPL_MODE            Either "sloppy" or "strict" (Not implemented)`);
+    BUN_REPL_HISTORY_SIZE    The maximum number of lines to store in the history. (Default: 1000)
+    BUN_REPL_PROMPT          A string to override the default REPL prompt with. (Default: "> ")
+    BUN_REPL_MODE            Either "sloppy" or "strict". (Default: "strict") [Not Implemented]`);
 }
 
 function printHelp(): void {
@@ -176,7 +177,7 @@ function printHelp(): void {
 function printInfo(): void {
     console.log(`bun-repl v${pkgjson.version}
     Installed at: ${$.cyan+path.join(import.meta.dir, '..')+$.reset}
-    Bun version: ${process.version}
+    Bun version: ${process.version}${process.revision ? `-${process.revision}` : ''}
     SWC version: v${swc.version as string}
     Color mode: ${$.bool(Bun.enableANSIColors)}
     Debug mode: ${$.bool(IS_DEBUG)}

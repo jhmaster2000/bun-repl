@@ -28,7 +28,7 @@ const swcrc: swc.Options = {
             optimizer: {
                 simplify: false,
                 globals: { vars: {
-                    repl: '(async function*() {}).constructor["@@REPLGlobal"].REPL'
+                    repl: '(async function*(){}).constructor["@@REPLGlobal"].REPL'
                 } }
             }
         },

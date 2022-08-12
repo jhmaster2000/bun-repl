@@ -1,100 +1,91 @@
 /* eslint-disable unicorn/custom-error-definition */
 // Polyfill of the Node.js "repl" module (WIP)
 
-import $ from '../colors';
-import bun from 'bun';
-import { SafeInspect } from '../utils';
+import utl from '../utl';
 
 class NotImplementedError extends Error {
-    constructor(method: string) {
-        super(method + ' is not implemented');
+    constructor(method: string, fullmsg: boolean = false) {
+        super(fullmsg ? method : method + ' is not implemented');
         this.name = 'NotImplementedError';
     }
 }
 
 export const nodePrefixedModules = [
-    'assert', 'buffer', 'constants', 'crypto', 'domain', 'events',
-    'fs', 'fs/promises', 'http', 'https', 'os', 'path', 'path/posix',
-    'path/win32', 'process', 'punycode', 'querystring', 'stream',
-    'string_decoder', 'sys', 'timers', 'tty', 'url', 'util', 'zlib'
+    'assert', 'buffer', 'console', 'constants', 'crypto', 'domain', 'events',
+    'fs', 'fs/promises', 'http', 'https', 'module', 'net', 'os', 'path',
+    'path/posix', 'path/win32', 'perf_hooks', 'process', 'punycode',
+    'querystring', 'stream', 'streams/consumer', 'streams/web', 'string_decoder',
+    'sys', 'timers', 'timers/promises', 'tty', 'url', 'util', 'zlib'
 ];
-export const bunPrefixedModules = ['ffi', 'jsc', 'sqlite', 'test'];
+export const bunPrefixedModules = ['ffi', 'jsc', 'sqlite', 'wrap'];
+export const unprefixedModules = [
+    '@vercel/fetch', 'depd', 'detect-libc', 'isomorphic-fetch', 'node-fetch', 'supports-color', 'undici', 'ws'
+];
+export const builtinModules = [
+    ...bunPrefixedModules.map(m => `bun:${m}`),
+    ...nodePrefixedModules.map(m => `node:${m}`),
+    ...unprefixedModules
+] as const;
 
-module repl {
-
-    export const repl = new Error('bun-repl does not run on a REPLServer');
-
-    export class REPLServer {
-        constructor() {
-            throw new NotImplementedError('repl.REPLServer');
-        }
+export class REPLServer {
+    constructor() {
+        throw new NotImplementedError('repl.REPLServer');
     }
-
-    export class Recoverable extends SyntaxError {
-        err: Error;
-        constructor(err: Error) {
-            super();
-            this.err = err;
-            throw new NotImplementedError('repl.Recoverable');
-        }
-    }
-
-    /** `bun` and `bun:test` are excluded as they can't be dynamically imported. */
-    export const builtinModules = [
-        ...bunPrefixedModules.map(m => `bun:${m}`),
-        ...nodePrefixedModules.map(m => `node:${m}`),
-        'supports-color'
-    ];
-
-    export const REPL_MODE_SLOPPY = Symbol('repl-sloppy');
-    export const REPL_MODE_STRICT = Symbol('repl-strict');
-
-    export function start(prompt: string, source: any, eval_: any, useGlobal: boolean, ignoreUndefined: boolean, replMode: symbol) {
-        //return new REPLServer(prompt, source, eval_, useGlobal, ignoreUndefined, replMode);
-        throw new NotImplementedError('repl.start');
-    }
-
-    const REPLWriterOptionsDefaults = {
-        showHidden: false,
-        depth: 2,
-        colors: bun.enableANSIColors,
-        customInspect: true,
-        showProxy: true,
-        maxArrayLength: 100,
-        maxStringLength: 10000,
-        breakLength: 80,
-        compact: 3,
-        sorted: false,
-        getters: false,
-        numericSeparator: false
-    };
-    interface REPLWriterFunction {
-        (val: any): string;
-        options: typeof REPLWriterOptionsDefaults;
-    }
-
-    export const writer = function writer(val: any): string {
-        return (SafeInspect(val, (<REPLWriterFunction>writer).options) ?? bun.inspect(val));
-    } as REPLWriterFunction;
-    Object.defineProperty(writer, 'options', {
-        value: new Proxy(REPLWriterOptionsDefaults, {
-            set(target, p, value) {
-                console.warn(`${$.yellow+$.dim}(warning) repl.writer.options are currently not all fully respected by the REPL.${$.reset}`);
-                // @ts-expect-error Temporary warning Proxy
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                target[p] = value;
-                return true;
-            }
-        }), enumerable: true
-    });
 }
 
-// For verifying all builtin modules
-/*for (const mod of repl.builtinModules) {
-    if (mod === 'bun' || mod === 'bun:test') continue;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const contents = await import(mod);
-    if (!contents) throw new Error(`Module does not exist: ${mod}`);
-}*/
+export class Recoverable extends SyntaxError {
+    readonly err: Error;
+    constructor(err: Error) {
+        super();
+        this.err = err;
+        throw new NotImplementedError('repl.Recoverable');
+    }
+}
+
+export const REPL_MODE_SLOPPY = Symbol('repl-sloppy');
+export const REPL_MODE_STRICT = Symbol('repl-strict');
+
+export function start(prompt: string, source: any, eval_: any, useGlobal: boolean, ignoreUndefined: boolean, replMode: symbol) {
+    //return new REPLServer(prompt, source, eval_, useGlobal, ignoreUndefined, replMode);
+    throw new NotImplementedError('repl.start');
+}
+
+interface REPLWriterFunction {
+    (val: any): string;
+    options: utl.InspectOptions;
+}
+
+export const writer = function writer(val: any): string {
+    const REPLGlobal = Reflect.get((async function*(){}).constructor, '@@REPLGlobal') as REPLGlobal;
+    const [formatted, err] = REPLGlobal.format(val);
+    if (err) throw err;
+    else return formatted;
+} as REPLWriterFunction;
+Object.defineProperty(writer, 'options', {
+    value: { ...utl.inspect.replDefaults }, enumerable: true
+});
+
+const repl = Object.defineProperties({}, {
+    start: { value: start, enumerable: true },
+    writer: { value: writer, enumerable: true },
+    repl: {
+        get() { throw new NotImplementedError('bun-repl does not run on a REPLServer', true); },
+        enumerable: true
+    },
+    builtinModules: { value: builtinModules, enumerable: true },
+    REPL_MODE_SLOPPY: { value: REPL_MODE_SLOPPY, enumerable: true },
+    REPL_MODE_STRICT: { value: REPL_MODE_STRICT, enumerable: true },
+    REPLServer: { value: REPLServer, enumerable: true },
+    Recoverable: { value: Recoverable, enumerable: true }
+}) as {
+    start: typeof start,
+    writer: typeof writer,
+    repl: REPLServer,
+    builtinModules: typeof builtinModules,
+    REPL_MODE_SLOPPY: typeof REPL_MODE_SLOPPY,
+    REPL_MODE_STRICT: typeof REPL_MODE_STRICT,
+    REPLServer: typeof REPLServer,
+    Recoverable: typeof Recoverable
+};
 
 export default repl;

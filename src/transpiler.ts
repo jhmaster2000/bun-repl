@@ -44,6 +44,8 @@ export default class Transpiler extends swc.Compiler {
         return code
             .replace(/(?:let|const) ([A-Za-z_$\d]+? ?=.)/g,
                 ($0, varname: string) => 'var ' + varname)
+            .replace(/(?:let|const) ?({[A-Za-z_$, \t\n\d]+?}) ?(=.)/g,
+                ($0, vars: string, end: string) => `var ${vars} ${end}`)
             .replace(/var (_.+?) = require\("(.+?)"\);[ \t\n;]*\/\*\$replTranspiledImport:({.+?})\*\//g,
                 ($0, requireVar: string, requireStr: string, infoStr: string) => {
                     const info = JSON.parse(infoStr) as replTranspiledImportInfo;
