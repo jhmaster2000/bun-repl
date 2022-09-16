@@ -14,10 +14,6 @@ declare global {
         execFile(filepath: string): Promise<void>;
     }
 
-    interface Process {
-        revision?: string;
-    }
-
     interface BunError {
         name: string;
         message: string;
@@ -65,11 +61,6 @@ declare global {
             latest: string
         }
     }
-
-    interface ImportMeta {
-        require: (moduleIdentifier: string) => unknown;
-    }
-    function require(moduleIdentifier: string): unknown;
 
     interface REPLGlobal {
         REPL: typeof repl;
