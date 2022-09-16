@@ -8,16 +8,15 @@ export default class REPLManager extends readline {
         super();
         this.prompt = process.env.BUN_REPL_PROMPT ?? prompt;
         historyPath ||= `${process.env.BUN_INSTALL ?? os.homedir()}/.bun_repl_history`;
+        this.#historyfd = fs.openSync(historyPath, 'a+');
+        this.#historypath = historyPath;
 
         const historyLines = fs.readFileSync(historyPath, 'utf8').split('\n');
         const maxHistoryLines = Number(process.env.BUN_REPL_HISTORY_SIZE ?? 1000) || 1000;
         if (historyLines.length > maxHistoryLines) {
             fs.writeFileSync(historyPath, historyLines.slice(historyLines.length - maxHistoryLines).join('\n'));
         }
-
         this.loadHistory(historyPath);
-        this.#historyfd = fs.openSync(historyPath, 'a+');
-        this.#historypath = historyPath;
     }
 
     promptline(): string {
