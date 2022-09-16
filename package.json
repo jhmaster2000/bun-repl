@@ -5,7 +5,7 @@
   "description": "Experimental unofficial REPL for Bun",
   "main": "src/module/repl.ts",
   "scripts": {
-    "start": "bun run src/repl.ts -- --",
+    "start": "bun run src/repl.ts --",
     "test": "bun run --silent check && bun run --silent start",
     "deeptest": "bun run --silent lint && bun run --silent test",
     "check": "bun tsc",
