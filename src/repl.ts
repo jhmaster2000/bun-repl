@@ -75,7 +75,7 @@ await realm.execFile('./realm.mjs');
 
 if (!singleshot) {
     console.log(
-        `Welcome to Bun.js ${process.version} (${process.revision ? 'canary-' + process.revision : 'release'})\n` +
+        `Welcome to Bun.js ${process.version}\n` +
         `Type ".help" for more information.`
     );
     debuglog(`${$.dim}INFO: Debug mode enabled.${$.reset}`);
@@ -177,7 +177,7 @@ function printHelp(): void {
 function printInfo(): void {
     console.log(`bun-repl v${pkgjson.version}
     Installed at: ${$.cyan+path.join(import.meta.dir, '..')+$.reset}
-    Bun version: ${process.version}${process.revision ? `-${process.revision}` : ''}
+    Bun version: ${process.version}${process.revision ? `${$.dim} (${process.revision})${$.reset}` : ''}
     SWC version: v${swc.version as string}
     Color mode: ${$.bool(Bun.enableANSIColors)}
     Debug mode: ${$.bool(IS_DEBUG)}
