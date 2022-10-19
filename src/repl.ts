@@ -180,7 +180,7 @@ function printHelp(): void {
 function printInfo(): void {
     console.log(`bun-repl v${pkgjson.version}
     Installed at: ${$.cyan+path.join(import.meta.dir, '..')+$.reset}
-    Bun version: ${BUN_VERSION} ${$.dim}(${process.revision})${$.reset}
+    Bun version: ${BUN_VERSION} ${$.dim}(${Bun.revision})${$.reset}
     SWC version: v${swc.version as string}
     Color mode: ${$.bool(Bun.enableANSIColors)}
     Debug mode: ${$.bool(IS_DEBUG)}
