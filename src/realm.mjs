@@ -47,6 +47,7 @@ Object.defineProperties(globalThis, {
                 moduleID = path.resolve(REPLGlobal.process.cwd(), moduleID);
             }
             debuglog((`${$.dim}Importing: ${$.blueBright+moduleID+$.reset}`));
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
             return import.meta.require(moduleID);
         }, writable: false, configurable: false, enumerable: false
     }
