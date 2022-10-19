@@ -1,11 +1,11 @@
 {
   "type": "module",
   "name": "bun-repl",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Experimental unofficial REPL for Bun",
   "main": "src/module/repl.ts",
   "scripts": {
-    "start": "bun run src/repl.ts --",
+    "start": "bun run src/repl.ts",
     "test": "bun run --silent check && bun run --silent start",
     "deeptest": "bun run --silent lint && bun run --silent test",
     "check": "bun tsc",
@@ -37,7 +37,6 @@
     "typescript": "^4.8.4"
   },
   "bin": {
-    "repl": "./bun-repl-cli.sh",
-    "bun-repl": "./bun-repl-cli2.sh"
+    "bun-repl": "./src/repl.ts"
   }
 }

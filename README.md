@@ -5,10 +5,11 @@ Experimental unofficial REPL for [Bun](https://github.com/oven-sh/bun)
 Powered by Bun itself with the help of `swc` and JSC's `ShadowRealm` API
 
 ## Install
-```
+`bun-repl` is not a local package, it **MUST** be installed globally to function properly!
+```sh
 bun add -g bun-repl
+# alternatively now supports your package manager of choice (although only npm has been tested)
 ```
-> ⚠️ Due to workarounds for Bun-specific issues, installation on other package managers like `npm` or `yarn` will not work.
 
 ## Features
 
