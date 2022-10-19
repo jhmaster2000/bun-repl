@@ -13,6 +13,9 @@ import { debuglog, IS_DEBUG } from './debug';
 
 debuglog(process.argv);
 
+// Futureproofing against addition or removal of the v prefix in the provided version
+const BUN_VERSION = Bun.version[0] === 'v' ? Bun.version : 'v' + Bun.version;
+
 const helpFlag = process.argv.includes('-h') || process.argv.includes('--help');
 if (helpFlag) {
     printCLIHelp();
@@ -75,7 +78,7 @@ await realm.execFile('./realm.mjs');
 
 if (!singleshot) {
     console.log(
-        `Welcome to Bun.js ${process.version}\n` +
+        `Welcome to Bun.js ${BUN_VERSION}\n` +
         `Type ".help" for more information.`
     );
     debuglog(`${$.dim}INFO: Debug mode enabled.${$.reset}`);
@@ -177,7 +180,7 @@ function printHelp(): void {
 function printInfo(): void {
     console.log(`bun-repl v${pkgjson.version}
     Installed at: ${$.cyan+path.join(import.meta.dir, '..')+$.reset}
-    Bun version: ${process.version} ${$.dim}(${process.revision})${$.reset}
+    Bun version: ${BUN_VERSION} ${$.dim}(${process.revision})${$.reset}
     SWC version: v${swc.version as string}
     Color mode: ${$.bool(Bun.enableANSIColors)}
     Debug mode: ${$.bool(IS_DEBUG)}
