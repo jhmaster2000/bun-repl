@@ -81,10 +81,19 @@ declare global {
     type Primordial<T, F extends (...x: any[]) => any> = (thisArg: T, ...args: Parameters<F>) => ReturnType<F>;
 }
 
-ShadowRealm.prototype.execFile = async function (filepath) {
-    try { await this.importValue(filepath, ''); } catch (err) {
-        if ((<Error>err).message.trim() !== '%ShadowRealm%.importValue requires |exportName| to exist in the |specifier|')
-            throw err; // Unexpected error should not be suppressed.
+ShadowRealm.prototype.execFile = async function(filepath) {
+    try {
+        filepath = Bun.resolveSync(filepath, import.meta.dir);
+        await this.importValue(filepath, '');
+    } catch (err) {
+        if ((<Error>err).message.trim() !== '%ShadowRealm%.importValue requires |exportName| to exist in the |specifier|') {
+            const error = new Error(
+                `%ShadowRealm%.execFile failed to execute file at ${filepath}` +
+                `\n(cause) ${(<Error>err).message}`
+            );
+            error.name = 'ShadowRealmExecFileError';
+            throw error; // Unexpected error should not be suppressed.
+        }
     }
 };
 

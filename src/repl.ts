@@ -74,7 +74,7 @@ const repl = new REPLManager();
 const transpiler = new Transpiler();
 
 // Prepare realm environment
-await realm.execFile('./realm.mjs');
+await realm.execFile('./realm');
 
 if (!singleshot) {
     console.log(
