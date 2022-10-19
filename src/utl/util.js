@@ -301,12 +301,12 @@ var TypeError2 = TypeError;
         var kObjectType = 0;
         var kArrayType = 1;
         var kArrayExtrasType = 2;
-        /* eslint-disable no-control-regex */
 
-        var strEscapeSequencesRegExp = /[\x00-\x1F\x27\x5C\x7F-\x9F]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?!.*[\uD800-\uDBFF][\uDC00-\uDFFF]).*[\uDC00-\uDFFF]/;
-        var strEscapeSequencesReplacer = /[\x00-\x1F\x27\x5C\x7F-\x9F]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?!.*[\uD800-\uDBFF][\uDC00-\uDFFF]).*[\uDC00-\uDFFF]/g;
-        var strEscapeSequencesRegExpSingle = /[\x00-\x1F\x5C\x7F-\x9F]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?!.*[\uD800-\uDBFF][\uDC00-\uDFFF]).*[\uDC00-\uDFFF]/;
-        var strEscapeSequencesReplacerSingle = /[\x00-\x1F\x5C\x7F-\x9F]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?!.*[\uD800-\uDBFF][\uDC00-\uDFFF]).*[\uDC00-\uDFFF]/g;
+        /* eslint-disable no-control-regex */    
+        var strEscapeSequencesRegExp = new RegExp("[\\x00-\\x1F\\x27\\x5C\\x7F-\\x9F]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?!.*[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]).*[\\uDC00-\\uDFFF]");
+        var strEscapeSequencesReplacer = new RegExp("[\\x00-\\x1F\\x27\\x5C\\x7F-\\x9F]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?!.*[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]).*[\\uDC00-\\uDFFF]", "g");
+        var strEscapeSequencesRegExpSingle = new RegExp("[\\x00-\\x1F\\x5C\\x7F-\\x9F]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?!.*[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]).*[\\uDC00-\\uDFFF]");
+        var strEscapeSequencesReplacerSingle = new RegExp("[\\x00-\\x1F\\x5C\\x7F-\\x9F]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?!.*[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]).*[\\uDC00-\\uDFFF]", "g");
         /* eslint-enable no-control-regex */
 
         var keyStrRegExp = /^[a-zA-Z_][a-zA-Z_0-9]*$/;
