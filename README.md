@@ -11,6 +11,11 @@ bun add -g bun-repl
 # alternatively now supports your package manager of choice (although only npm has been tested)
 ```
 
+### Versioning
+[npm](https://www.npmjs.com/package/bun-repl) and [GitHub](https://github.com/jhmaster2000/bun-repl/releases) releases will always be guaranteed to not rely on current Bun canary versions, but support for any version other than the latest non-canary will not be guaranteed.
+
+The source code repository latest commit may contain code not yet in any release which depends on currently Bun canary-only features and has no guarantees.
+
 ## Features
 
 * Seamless JavaScript & TypeScript execution
