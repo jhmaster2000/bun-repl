@@ -25,7 +25,7 @@ The source code repository latest commit may contain code not yet in any release
 * Node.js REPL special underscore variables provided (`_` and `_error`)
 * Resistent to global object modification (output quality may decrease but never crash)
 * Node.js `repl` module polyfill
-* Execution history (`↑` `↓`)
+* Persistent execution history (`↑` `↓`)
 * REPL Commands (`.command`)
 
 ## Usage
@@ -66,6 +66,8 @@ PRs are welcome to help fix any of the items below or anything else.
     * Reason: The library used for prompts (`rustybun`) doesn't support this.
 * To preserve lexically-scoped variables (`let` & `const`) across REPL runs, they need to be converted to `var`, which disrupts their behavior, especially `const`'s (This also requires using non-strict mode)
     * Reason: Usage of `eval()` which has its own lexical scope.
+* Attempting to run a non-file import while in a `cwd` without a `node_modules` folder has a small chance of crashing with a segfault.
+    * Reason: A bug on Bun's side with automatic package installs and `resolveSync`.
 
 [github-url]:https://github.com/jhmaster2000/bun-repl
 [github-image]:https://img.shields.io/github/package-json/v/jhmaster2000/bun-repl.svg?color=gray
