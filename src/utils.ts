@@ -41,7 +41,6 @@ export function SafeInspect(val: any, opts: util.InspectOptions = {}, bunInspect
         try {
             return utl.inspect(val, opts);
         } catch {
-            //void 0; throw err;
             try {
                 return util.inspect(val, opts);
             } catch {
@@ -53,7 +52,6 @@ export function SafeInspect(val: any, opts: util.InspectOptions = {}, bunInspect
             }
         }
     } catch {
-        //void 0; throw err2;
         try {
             // In the greatly unexpected event of Bun's native inspect failing,
             // panic back to the primitive method of string coercion.
