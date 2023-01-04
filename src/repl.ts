@@ -11,7 +11,7 @@ import REPLManager from './replmanager';
 import pkgjson from './pkgjson';
 import { debuglog, IS_DEBUG } from './debug';
 
-debuglog(process.argv);
+//debuglog(process.argv);
 
 // Futureproofing against addition or removal of the v prefix in the provided version
 const BUN_VERSION = Bun.version[0] === 'v' ? Bun.version : 'v' + Bun.version;
