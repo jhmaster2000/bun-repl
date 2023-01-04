@@ -19,6 +19,24 @@ import { debuglog } from './debug';
 import { SafeGet, SafeInspect, Primordial } from './utils';
 import repl, { bunPrefixedModules, nodePrefixedModules } from './module/repl';
 
+// The snippet below will eventually be used for loading global modules in the REPL, but for now it's not used since it's not very reliable.
+// /** @type string | null */
+//let globalDir = null;
+//try {
+//    globalDir = path.join(Bun.spawnSync(['bun', 'pm', 'cache']).stdout?.toString('utf8').trim() ?? /**@type any*/(null)['throw'], '..', 'global');
+//    debuglog($.green+$.dim+'Resolved global dir (experimental):', globalDir, $.reset);
+//} catch {
+//    globalDir = null;
+//    debuglog($.red+$.dim+'Failed to resolve global dir (experimental).', $.reset);
+//}
+
+// There is currently a *random* segfault related to the resolveSync functions, possibly caused by auto-installs.
+//? ref: https://canary.discord.com/channels/876711213126520882/876711213126520885/1060209042015932477
+// import.meta.resolveSync takes a *file* path for the parent.
+// Bun.resolveSync takes a *directory* path for the parent.
+// Other than the above, import.meta.resolveSync just calls Bun.resolveSync under the hood, so it doesn't matter much which one we use.
+// The segfault happens with both, and as such there doesn't seem to be any workaround for this at the moment...
+const { resolveSync } = import.meta; // Bun
 const originalproxy = Proxy;
 Object.defineProperties(globalThis, {
     /** Stores the last REPL result. */
@@ -43,8 +61,17 @@ Object.defineProperties(globalThis, {
             if (REPLGlobal.ArrayIncludes(nodePrefixedModules, moduleID)) moduleID = `node:${moduleID}`;
             if (moduleID === 'repl' || moduleID === 'node:repl') return repl; // polyfill
             if (moduleID === 'bun') return bun; // workaround
-            if (moduleID[0] === '.' || moduleID[0] === '/') {
-                moduleID = path.resolve(REPLGlobal.process.cwd(), moduleID);
+            const here = path.join(REPLGlobal.process.cwd(), /** @type {string} */(swcrc.filename));
+            try {
+                moduleID = resolveSync(moduleID, here);
+            } catch {
+                Bun.gc(true); // attempt to mitigate the resolveSync segfault, doesn't fully prevent it but seems to make it a little less frequent
+                // TODO: attempt to load the module from the global directory if it's not found in the local directory
+                throw {
+                    name: 'ResolveError',
+                    message: `Cannot find module "${moduleID}" from "${here}"`,
+                    specifier: moduleID
+                };
             }
             debuglog((`${$.dim}Importing: ${$.blueBright+moduleID+$.reset}`));
             // eslint-disable-next-line @typescript-eslint/no-unsafe-return
