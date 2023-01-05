@@ -130,6 +130,7 @@ Object.defineProperties(REPLGlobal, {
     eval: { value: globalThis.eval },
     global: { value: globalThis },
     Error: { value: Error },
+    SyntaxError: { value: SyntaxError },
     Symbol: { value: Symbol },
     console: { value: { ...console } },
     process: { value: { ...process } },
