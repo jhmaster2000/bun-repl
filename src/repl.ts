@@ -22,7 +22,7 @@ if (helpFlag) {
 
 const versionFlag = process.argv.includes('-v') || process.argv.includes('--version');
 if (versionFlag) {
-    console.log(`bun-repl ${pkgjson.version}`);
+    console.log(`bun-repl ${pkgjson.version} running on Bun ${BUN_VERSION.slice(1)} (${Bun.revision})`);
     process.exit(0);
 }
 
