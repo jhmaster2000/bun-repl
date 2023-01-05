@@ -4,7 +4,8 @@ import swcDefaultConfig from './swcrc';
 type replTranspiledImportInfo = {
     varname?: string,
     destructuredVars?: string[],
-    moduleIdentifier: string
+    moduleIdentifier: string,
+    wildcard: boolean,
 };
 
 export default class Transpiler extends swc.Compiler {
@@ -29,6 +30,7 @@ export default class Transpiler extends swc.Compiler {
                     if (destructuredVars) {
                         info.destructuredVars = destructuredVars.trim().slice(1, -1).trim().split(',').map(s => s.trim());
                     }
+                    info.wildcard = !!wildcardVar;
                     str += JSON.stringify(info) + '*/';
                     if (info.varname) str += `void ${info.varname};`;
                     if (info.destructuredVars) info.destructuredVars.forEach(variable => {
@@ -50,7 +52,15 @@ export default class Transpiler extends swc.Compiler {
                 ($0, requireVar: string, requireStr: string, infoStr: string) => {
                     const info = JSON.parse(infoStr) as replTranspiledImportInfo;
                     let str = `const ${requireVar} = require("${requireStr}");`;
-                    if (info.varname) str += `var ${info.varname} = ${requireVar};`;
+                    if (info.varname) {
+                        str += `var ${info.varname} = ${requireVar}`;
+                        if (!info.wildcard) {
+                            str += `.default;if(!('default' in ${requireVar}))` +
+                                `throw new (async function*(){}).constructor['@@REPLGlobal'].SyntaxError` +
+                                `("Missing 'default' import in module '${requireStr}'.")`;
+                        }
+                        str += ';';
+                    }
                     if (info.destructuredVars) {
                         let ifstr = 'if(!(';
                         let delstr = ')){';
@@ -65,8 +75,8 @@ export default class Transpiler extends swc.Compiler {
                             ifstr += `((async function*(){}).constructor['@@REPLGlobal'].temp.$v="${exportStr}") in ${requireVar}&&`;
                             delstr += `delete (async function*(){}).constructor['@@REPLGlobal'].global["${variable}"];`;
                         });
-                        const errmsg = `The requested module '${requireStr}' does not provide an export named '\${(async function*(){}).constructor['@@REPLGlobal'].temp.$v}'`;
-                        delstr += `throw new (async function*(){}).constructor['@@REPLGlobal'].Error(\`${errmsg}\`);};`;
+                        const errmsg = `Import named '\${(async function*(){}).constructor['@@REPLGlobal'].temp.$v}' not found in module '${requireStr}'.`;
+                        delstr += `throw new (async function*(){}).constructor['@@REPLGlobal'].SyntaxError(\`${errmsg}\`);};`;
                         ifstr = ifstr.slice(0, -2);
                         str += ifstr + delstr;
                     }
