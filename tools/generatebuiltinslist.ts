@@ -1,5 +1,6 @@
 // Generates the string arrays for repl.builtinModules in src/module/repl.ts
 // Pulls module lists directly from Bun source code and sanitizes the data.
+// ! This script is currently broken due to a change in the Bun source.
 
 import utl from '../src/utl';
 
