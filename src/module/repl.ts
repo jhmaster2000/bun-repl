@@ -11,7 +11,7 @@ class NotImplementedError extends Error {
 }
 
 export const nodePrefixedModules = [
-    'assert', 'buffer', 'console', 'constants', 'crypto', 'domain', 'events',
+    'assert', 'buffer', 'child_process', 'console', 'constants', 'crypto', 'domain', 'events',
     'fs', 'fs/promises', 'http', 'https', 'module', 'net', 'os', 'path',
     'path/posix', 'path/win32', 'perf_hooks', 'process', 'punycode',
     'querystring', 'stream', 'streams/consumer', 'streams/web', 'string_decoder',
