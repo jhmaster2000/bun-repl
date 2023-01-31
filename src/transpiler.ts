@@ -23,7 +23,7 @@ export default class Transpiler extends swc.Compiler {
         return code
             .replaceAll(/import(?:(?:(?:[ \n\t]+([^ *\n\t{},]+)[ \n\t]*(?:,|[ \n\t]+))?([ \n\t]*\{(?:[ \n\t]*[^ \n\t"'{}]+[ \n\t]*,?)+\})?[ \n\t]*)|[ \n\t]*\*[ \n\t]*as[ \n\t]+([^ \n\t{}]+)[ \n\t]+)from[ \n\t]*(?:['"])([^'"\n]+)(['"])/g,
                 ($0, defaultVar?: string, destructuredVars?: string, wildcardVar?: string, moduleIdentifier: string = '') => {
-                    let str = `${$0};/*$replTranspiledImport:`;
+                    let str = `${$0};/*$replTranspiledImport:` as unknown as string; // TS bug workaround
                     let info = { moduleIdentifier } as replTranspiledImportInfo;
                     if (defaultVar) info.varname = defaultVar.trim();
                     if (wildcardVar) info.varname = wildcardVar.trim();
@@ -55,9 +55,10 @@ export default class Transpiler extends swc.Compiler {
                     if (info.varname) {
                         str += `var ${info.varname} = ${requireVar}`;
                         if (!info.wildcard) {
-                            str += `.default;if(!('default' in ${requireVar}))` +
-                                `throw new (async function*(){}).constructor['@@REPLGlobal'].SyntaxError` +
-                                `("Missing 'default' import in module '${requireStr}'.")`;
+                            str += `.default??${requireVar};`; //+
+                            //`if(!('default' in ${requireVar}) && !((async function*(){}).constructor['@@REPLGlobal'].SymbolCJS in ${requireVar}))` +
+                            //`throw new (async function*(){}).constructor['@@REPLGlobal'].SyntaxError` +
+                            //`("Missing 'default' import in module '${requireStr}'.")`;
                         }
                         str += ';';
                     }

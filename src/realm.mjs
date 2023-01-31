@@ -132,6 +132,7 @@ Object.defineProperties(REPLGlobal, {
     Error: { value: Error },
     SyntaxError: { value: SyntaxError },
     Symbol: { value: Symbol },
+    SymbolCJS: { value: Symbol.for('CommonJS') }, // internal bun symbol used by import.meta.require
     console: { value: { ...console } },
     process: { value: { ...process } },
     StringSlice: { value: Primordial(String.prototype.slice) },
