@@ -11,15 +11,15 @@ class NotImplementedError extends Error {
 }
 
 export const nodePrefixedModules = [
-    'assert', 'buffer', 'child_process', 'console', 'constants', 'crypto', 'domain', 'events',
-    'fs', 'fs/promises', 'http', 'https', 'module', 'net', 'os', 'path',
-    'path/posix', 'path/win32', 'perf_hooks', 'process', 'punycode',
-    'querystring', 'stream', 'streams/consumer', 'streams/web', 'string_decoder',
-    'sys', 'timers', 'timers/promises', 'tty', 'url', 'util', 'zlib'
+    'assert', 'buffer', 'child_process', 'console', 'constants', 'crypto', 'dns', 'dns/promises', 'domain', 'events',
+    'fs', 'fs/promises', 'http', 'https', 'module', 'net', 'os', 'path', 'path/posix', 'path/win32', 'perf_hooks',
+    'process', 'punycode', 'querystring', 'readline', 'readline/promises', 'stream', 'stream/consumers', 'stream/web',
+    'string_decoder', 'sys', 'timers', 'timers/promises', 'tls', 'tty', 'url', 'util', 'util/types', 'zlib'
 ];
 export const bunPrefixedModules = ['ffi', 'jsc', 'sqlite', 'wrap'];
 export const unprefixedModules = [
-    '@vercel/fetch', 'depd', 'detect-libc', 'isomorphic-fetch', 'node-fetch', 'supports-color', 'undici', 'ws'
+    '@vercel/fetch', 'depd', 'detect-libc', 'isomorphic-fetch', 'node-fetch', 'readable-stream',
+    'readable-stream/consumer', 'readable-stream/web', 'supports-color', 'undici', 'ws'
 ];
 export const builtinModules = [
     ...bunPrefixedModules.map(m => `bun:${m}`),
