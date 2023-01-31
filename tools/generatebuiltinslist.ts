@@ -38,7 +38,7 @@ for (const mod of builtins) {
         if (!contents) throw new Error(`Module does not exist but failed silently!`);
         const props = Object.getOwnPropertyNames(contents);
         if (props.length === 0 || (props.length === 1 && props[0] === 'default')) throw new Error(`Module is empty!`);
-        console.log(mod, utl.inspect(contents, { colors: true, depth: 0, compact: true }));
+        //console.log(mod, utl.inspect(contents, { colors: true, depth: 0, compact: true }));
     } catch (err) {
         if (!['', 'p', 'dic'].includes(mod))
             console.error(`Removing module "${mod}" from builtins list due to import error:`, err.message);
