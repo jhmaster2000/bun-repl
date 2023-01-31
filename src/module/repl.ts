@@ -14,7 +14,7 @@ export const nodePrefixedModules = [
     'assert', 'buffer', 'child_process', 'console', 'constants', 'crypto', 'dns', 'dns/promises', 'domain', 'events',
     'fs', 'fs/promises', 'http', 'https', 'module', 'net', 'os', 'path', 'path/posix', 'path/win32', 'perf_hooks',
     'process', 'punycode', 'querystring', 'readline', 'readline/promises', 'stream', 'stream/consumers', 'stream/web',
-    'string_decoder', 'sys', 'timers', 'timers/promises', 'tls', 'tty', 'url', 'util', 'util/types', 'zlib'
+    'string_decoder', 'sys', 'timers', 'timers/promises', 'tls', 'tty', 'url', 'util', 'util/types', 'wasi', 'zlib'
 ];
 export const bunPrefixedModules = ['ffi', 'jsc', 'sqlite', 'wrap'];
 export const unprefixedModules = [
