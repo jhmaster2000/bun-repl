@@ -21,18 +21,6 @@ declare global {
         column: number;
     }
 
-    interface ResolveError {
-        referrer?: string;
-        message?: string;
-        name?: 'ResolveError';
-        specifier?: string;
-        importKind?: string;
-        position?: number;
-        convertToType?: string;
-        toString(): string;
-    }
-    const ResolveError: ResolveError;
-
     interface PackageJson {
         type?: "module" | "commonjs";
         name: string;
