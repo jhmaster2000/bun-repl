@@ -67,3 +67,12 @@ export function SafeInspect(val: any, opts: util.InspectOptions = {}, bunInspect
         }
     }
 }
+
+/**
+ * Convert a {@link WebSocket.onmessage} `event.data` value to a string.
+ */
+export function wsDataToString(data: Parameters<NonNullable<WebSocket['onmessage']>>[0]['data']): string {
+    if (data instanceof ArrayBuffer) return new TextDecoder('utf-8').decode(data);
+    else if (data instanceof Buffer) return data.toString('utf-8');
+    else return data;
+}
