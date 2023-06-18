@@ -33,7 +33,7 @@
     "@typescript-eslint/parser": "^5.59.11",
     "bun-devtools": "^0.0.2",
     "bun-types": "^0.6.9",
-    "eslint": "^8.42.0",
+    "eslint": "^8.43.0",
     "eslint-plugin-unicorn": "^47.0.0",
     "typescript": "^5.1.3"
   },
