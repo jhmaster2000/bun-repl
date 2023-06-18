@@ -8,7 +8,7 @@ import path from 'path';
 import prettyms from 'pretty-ms';
 import Transpiler from './transpiler';
 import REPLManager from './replmanager';
-import pkgjson from './pkgjson';
+import pkgjson from '../package.json';
 import { debuglog, IS_DEBUG } from './debug';
 
 // Futureproofing against addition or removal of the v prefix in the provided version
