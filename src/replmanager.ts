@@ -8,9 +8,21 @@ import readline from 'rustybun';
 // https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 // Also ensures that the parent directory exists, so that the file can be created without issue.
 function repl_history_file_path(): string {
-    let dataFolder = process.env.BUN_INSTALL ?? (process.env.XDG_DATA_HOME) ?? path.join(os.homedir(), ".local/share")
+    const dataFolder = process.env.BUN_INSTALL ?? (process.env.XDG_DATA_HOME) ?? path.join(os.homedir(), ".local/share")
+    let history_path = path.join(dataFolder, "bun-repl/history");
     fs.mkdirSync(path.join(dataFolder, "bun-repl"), { recursive: true });
-    return path.join(dataFolder, "bun-repl/history")
+
+    if (!fs.existsSync(history_path)) {
+        const old_default_path = path.join(os.homedir(), ".bun_repl_history")
+        if (fs.existsSync(old_default_path)) {
+            console.info(`----------------
+Detected a bun-repl history file at the old default location: ${old_default_path}
+Moving to: ${history_path}
+----------------`);
+            fs.renameSync(old_default_path, history_path)
+        }
+    }
+    return history_path;
 }
 
 export default class REPLManager extends readline {
