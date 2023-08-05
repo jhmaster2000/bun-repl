@@ -8,7 +8,7 @@ import readline from 'rustybun';
 // https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 // Also ensures that the parent directory exists, so that the file can be created without issue.
 function repl_history_file_path(): string {
-    const dataFolder = process.env.BUN_INSTALL ?? (process.env.XDG_DATA_HOME) ?? path.join(os.homedir(), ".local/share")
+    const dataFolder = process.env.BUN_INSTALL ?? process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local/share")
     let history_path = path.join(dataFolder, "bun-repl/history");
     fs.mkdirSync(path.join(dataFolder, "bun-repl"), { recursive: true });
 
