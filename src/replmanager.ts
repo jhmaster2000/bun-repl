@@ -1,13 +1,23 @@
 import $ from './colors';
 import fs from 'fs';
 import os from 'os';
+import path from 'path';
 import readline from 'rustybun';
+
+// Follows the XDG directory convention, accepting `BUN_INSTALL` as an override.
+// https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+// Also ensures that the parent directory exists, so that the file can be created without issue.
+function repl_history_file_path(): string {
+    let dataFolder = process.env.BUN_INSTALL ?? (process.env.XDG_DATA_HOME) ?? path.join(os.homedir(), ".local/share")
+    fs.mkdirSync(path.join(dataFolder, "bun-repl"), { recursive: true });
+    return path.join(dataFolder, "bun-repl/history")
+}
 
 export default class REPLManager extends readline {
     constructor(prompt: string = '> ', historyPath?: string) {
         super();
         this.prompt = process.env.BUN_REPL_PROMPT ?? prompt;
-        historyPath ||= `${process.env.BUN_INSTALL ?? os.homedir()}/.bun_repl_history`;
+        historyPath ||= repl_history_file_path();
         this.#historyfd = fs.openSync(historyPath, 'a+');
         this.#historypath = historyPath;
 
