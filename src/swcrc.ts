@@ -11,25 +11,22 @@ const swcrc: swc.Options = {
         type: 'commonjs',
         lazy: false,
         strict: true,
-        strictMode: false,
+        strictMode: true,
         ignoreDynamic: true,
         importInterop: 'none',
     },
     jsc: {
-        target: 'es2022',
+        target: 'esnext',
         parser: {
             syntax: 'typescript',
             dynamicImport: true,
-            decorators: false,
+            decorators: true,
         },
         transform: {
             useDefineForClassFields: false,
             treatConstEnumAsEnum: false,
             optimizer: {
-                simplify: false,
-                globals: { vars: {
-                    repl: '(async function*(){}).constructor["@@REPLGlobal"].REPL'
-                } }
+                simplify: false
             }
         },
         preserveAllComments: true,

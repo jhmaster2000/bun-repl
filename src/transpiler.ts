@@ -20,10 +20,10 @@ export default class Transpiler extends swc.Compiler {
 
     // REPL-specific adjustments needed for the code to work in a REPL context. (Ran before transpile)
     preprocess(code: string): string {
-        return code
+        return ';void 0;' + code
             .replaceAll(/import(?:(?:(?:[ \n\t]+([^ *\n\t{},]+)[ \n\t]*(?:,|[ \n\t]+))?([ \n\t]*\{(?:[ \n\t]*[^ \n\t"'{}]+[ \n\t]*,?)+\})?[ \n\t]*)|[ \n\t]*\*[ \n\t]*as[ \n\t]+([^ \n\t{}]+)[ \n\t]+)from[ \n\t]*(?:['"])([^'"\n]+)(['"])/g,
                 ($0, defaultVar?: string, destructuredVars?: string, wildcardVar?: string, moduleIdentifier: string = '') => {
-                    let str = `${$0};/*$replTranspiledImport:` as unknown as string; // TS bug workaround
+                    let str = `${$0};/*$replTranspiledImport:`;
                     let info = { moduleIdentifier } as replTranspiledImportInfo;
                     if (defaultVar) info.varname = defaultVar.trim();
                     if (wildcardVar) info.varname = wildcardVar.trim();
@@ -44,22 +44,17 @@ export default class Transpiler extends swc.Compiler {
     // REPL-specific adjustments needed for the code to work in a REPL context. (Ran after transpile)
     postprocess(code: string): string {
         return code
-            .replaceAll(/(?:let|const) ([A-Za-z_$\d]+? ?=.)/g,
-                ($0, varname: string) => 'var ' + varname)
-            .replaceAll(/(?:let|const) ?({[A-Za-z_$, \t\n\d]+?}) ?(=.)/g,
-                ($0, vars: string, end: string) => `var ${vars} ${end}`)
-            .replaceAll(/var (_.+?) = require\("(.+?)"\);[ \t\n;]*\/\*\$replTranspiledImport:({.+?})\*\//g,
+            //.replaceAll(/(?:let|const) ([A-Za-z_$\d]+? ?=.)/g,
+            //    ($0, varname: string) => 'var ' + varname)
+            //.replaceAll(/(?:let|const) ?({[A-Za-z_$, \t\n\d]+?}) ?(=.)/g,
+            //    ($0, vars: string, end: string) => `var ${vars} ${end}`)
+            .replaceAll(/(?:var|let|const) (_.+?) = require\("(.+?)"\);[ \t\n;]*\/\*\$replTranspiledImport:({.+?})\*\//g,
                 ($0, requireVar: string, requireStr: string, infoStr: string) => {
                     const info = JSON.parse(infoStr) as replTranspiledImportInfo;
                     let str = `const ${requireVar} = require("${requireStr}");`;
                     if (info.varname) {
                         str += `var ${info.varname} = ${requireVar}`;
-                        if (!info.wildcard) {
-                            str += `.default??${requireVar};`; //+
-                            //`if(!('default' in ${requireVar}) && !((async function*(){}).constructor['@@REPLGlobal'].SymbolCJS in ${requireVar}))` +
-                            //`throw new (async function*(){}).constructor['@@REPLGlobal'].SyntaxError` +
-                            //`("Missing 'default' import in module '${requireStr}'.")`;
-                        }
+                        if (!info.wildcard) str += `.default??${requireVar};`;
                         str += ';';
                     }
                     if (info.destructuredVars) {

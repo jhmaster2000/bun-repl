@@ -2,6 +2,7 @@
 // Polyfill of the Node.js "repl" module (WIP)
 
 import utl from '../utl';
+import { builtinModules } from 'node:module';
 
 class NotImplementedError extends Error {
     constructor(method: string, fullmsg: boolean = false) {
@@ -9,23 +10,6 @@ class NotImplementedError extends Error {
         this.name = 'NotImplementedError';
     }
 }
-
-export const nodePrefixedModules = [
-    'assert', 'buffer', 'child_process', 'console', 'constants', 'crypto', 'dns', 'dns/promises', 'domain', 'events',
-    'fs', 'fs/promises', 'http', 'https', 'module', 'net', 'os', 'path', 'path/posix', 'path/win32', 'perf_hooks',
-    'process', 'punycode', 'querystring', 'readline', 'readline/promises', 'stream', 'stream/consumers', 'stream/web',
-    'string_decoder', 'sys', 'timers', 'timers/promises', 'tls', 'tty', 'url', 'util', 'util/types', 'wasi', 'zlib'
-];
-export const bunPrefixedModules = ['ffi', 'jsc', 'sqlite', 'wrap'];
-export const unprefixedModules = [
-    '@vercel/fetch', 'depd', 'detect-libc', 'isomorphic-fetch', 'node-fetch', 'readable-stream',
-    'readable-stream/consumer', 'readable-stream/web', 'supports-color', 'undici', 'ws'
-];
-export const builtinModules = [
-    ...bunPrefixedModules.map(m => `bun:${m}`),
-    ...nodePrefixedModules.map(m => `node:${m}`),
-    ...unprefixedModules
-] as const;
 
 export class REPLServer {
     constructor() {
@@ -56,10 +40,10 @@ interface REPLWriterFunction {
 }
 
 export const writer = function writer(val: any): string {
-    const REPLGlobal = Reflect.get((async function*(){}).constructor, '@@REPLGlobal') as REPLGlobal;
-    const [formatted, err] = REPLGlobal.format(val);
-    if (err) throw err;
-    else return formatted;
+    if (val instanceof Error) return Bun.inspect(val, { colors: Bun.enableANSIColors });
+    // @ts-expect-error not exactly 1:1 or safe but meh
+    // eslint-disable-next-line
+    return utl.inspect(val, globalThis.repl?.writer?.options ?? { colors: Bun.enableANSIColors, showProxy: true });
 } as REPLWriterFunction;
 Object.defineProperty(writer, 'options', {
     value: { ...utl.inspect.replDefaults }, enumerable: true
@@ -69,7 +53,7 @@ const repl = Object.defineProperties({}, {
     start: { value: start, enumerable: true },
     writer: { value: writer, enumerable: true },
     repl: {
-        get() { throw new NotImplementedError('bun-repl does not run on a REPLServer', true); },
+        get() { throw new NotImplementedError('bun repl does not run on a REPLServer', true); },
         enumerable: true
     },
     builtinModules: { value: builtinModules, enumerable: true },

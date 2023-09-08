@@ -11,15 +11,8 @@
         "ecmaVersion": 2022,
         "ecmaFeatures": { "impliedStrict": true }
     },
-    "plugins": [
-        "@typescript-eslint",
-        "unicorn"
-    ],
-    "extends": [
-        "eslint:recommended",
-        "plugin:@typescript-eslint/recommended",
-        "plugin:@typescript-eslint/recommended-requiring-type-checking"
-    ],
+    "plugins": ["@typescript-eslint", "unicorn"],
+    "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "plugin:@typescript-eslint/recommended-requiring-type-checking"],
     "rules": {
         "unicorn/escape-case": "error",
         "unicorn/number-literal-case": "error",
@@ -28,7 +21,7 @@
         "unicorn/prefer-array-flat": "error",
         "unicorn/prefer-array-flat-map": "error",
         "unicorn/prefer-array-index-of": "error",
-        "unicorn/prefer-at": "error",
+        "unicorn/prefer-at": "off",
         "unicorn/prefer-negative-index": "error",
         "unicorn/prefer-object-from-entries": "error",
         "unicorn/prefer-prototype-methods": "error",
@@ -61,6 +54,16 @@
         "array-callback-return": ["error", { "allowImplicit": true }],
         "indent": ["error", 4, { "SwitchCase": 1 }],
         "semi": ["error", "always"],
+        "@typescript-eslint/ban-types": [
+            "error",
+            {
+                "types": {
+                    "String": false,
+                    "Function": false
+                },
+                "extendDefaults": true
+            }
+        ],
         "@typescript-eslint/no-namespace": "off",
         "@typescript-eslint/unbound-method": "off",
         "@typescript-eslint/no-explicit-any": "off",
@@ -71,12 +74,15 @@
         "@typescript-eslint/no-unused-vars": ["warn", { "vars": "all", "args": "none", "ignoreRestSiblings": false }],
         "@typescript-eslint/no-misused-promises": ["error", { "checksVoidReturn": false }],
         "@typescript-eslint/no-empty-function": "off",
-        "@typescript-eslint/restrict-template-expressions": ["error", {
-            "allowNumber": true,
-            "allowBoolean": true,
-            "allowAny": false,
-            "allowNullish": false,
-            "allowRegExp": true
-        }]
+        "@typescript-eslint/restrict-template-expressions": [
+            "error",
+            {
+                "allowNumber": true,
+                "allowBoolean": true,
+                "allowAny": false,
+                "allowNullish": false,
+                "allowRegExp": true
+            }
+        ]
     }
 }

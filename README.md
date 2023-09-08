@@ -1,15 +1,13 @@
 # bun-repl [![GitHub version][github-image]][github-url] [![GitHub code size in bytes][size-image]][github-url] [![license][license-image]][license-url]
 
-Experimental unofficial REPL for [Bun](https://github.com/oven-sh/bun)
+Experimental REPL for [Bun](https://github.com/oven-sh/bun)
 
-Powered by Bun itself with the help of `swc` and JSC's `ShadowRealm` API
-
-## Install 
+## Install
+You can use it directly via Bun with:
 ```sh
-bun add -g bun-repl
-# alternatively now supports your package manager of choice
-# (although only npm/npm-like have been tested)
+bun repl
 ```
+No installation required!
 
 ### Versioning
 [npm](https://www.npmjs.com/package/bun-repl) and [GitHub](https://github.com/jhmaster2000/bun-repl/releases) releases will always be guaranteed to not rely on current Bun canary versions, but support for any version other than the latest non-canary will not be guaranteed.
@@ -21,6 +19,8 @@ The source code repository latest commit may contain code not yet in any release
 * Seamless JavaScript & TypeScript execution
 * Single run CLI flags `--eval` and `--print`
 * Top level import syntax supported (`import fs from 'fs'`)
+* Top level await (experimental)
+* Lazy-loaded builtin modules as preloaded global variables. (including Bun modules! Try `ffi` or `sqlite`)
 * Import either CommonJS or ESM local files and packages into the REPL
 * Node.js REPL special underscore variables provided (`_` and `_error`)
 * Resistent to global object modification (output quality may decrease but never crash)
@@ -30,7 +30,7 @@ The source code repository latest commit may contain code not yet in any release
 
 ## Usage
 ```sh
-bun-repl [options]
+bun repl [options]
 ```
 Pass the `-h` or `--help` CLI option for a list of all options.
 
@@ -39,12 +39,12 @@ Type `.help` within the REPL for a list of commands.
 Press `↑` and `↓` to travel up or down the execution history.
 
 ### The `repl` module polyfill
-`bun-repl` exposes a special variable `repl` which provides access to a REPL interface like the Node.js REPL (also accessible through import/require of `repl` or `node:repl`).
+`bun repl` exposes a special variable `repl` which provides access to a REPL interface like the Node.js REPL (also accessible through import/require of `repl` or `node:repl`).
 
 Currently only a subset of the `node:repl` API is implemented, see below:
 * `repl` global object ✅
     * `start()` function ❌
-    * `writer()` function ✅
+    * `writer()` function ✅ (Partial)
         * `options` object ✅
     * `repl` property ❌
     * `builtinModules` array ✅
@@ -56,18 +56,10 @@ Currently only a subset of the `node:repl` API is implemented, see below:
 You can use `repl.writer.options` like you would in Node.js REPL to customize the live output of the running REPL.
 
 ## Known issues & limitations
-Please keep in mind this is unofficial and experimental software built on top of experimental software (Bun). Additionally, Bun will obviously be getting an official native REPL in the future which certainly will be much better, this module is merely serving as a temporary alternative until then.
-
 PRs are welcome to help fix any of the items below or anything else.
 
-* Top level await is not supported.
-    * Reason: Usage of `eval()`
+* Top level await is only *partially* supported. Needs improvement.
 * Multi-line inputs are not supported.
-    * Reason: The library used for prompts (`rustybun`) doesn't support this.
-* To preserve lexically-scoped variables (`let` & `const`) across REPL runs, they need to be converted to `var`, which disrupts their behavior, especially `const`'s (This also requires using non-strict mode)
-    * Reason: Usage of `eval()` which has its own lexical scope.
-* Attempting to run a non-file import while in a `cwd` without a `node_modules` folder has a small chance of crashing with a segfault.
-    * Reason: A bug on Bun's side with automatic package installs and `resolveSync`.
 
 [github-url]:https://github.com/jhmaster2000/bun-repl
 [github-image]:https://img.shields.io/github/package-json/v/jhmaster2000/bun-repl.svg?color=gray
