@@ -11,7 +11,7 @@ const swcrc: swc.Options = {
         type: 'commonjs',
         lazy: false,
         strict: true,
-        strictMode: true,
+        strictMode: false,
         ignoreDynamic: true,
         importInterop: 'none',
     },

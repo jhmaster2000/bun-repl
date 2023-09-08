@@ -8,6 +8,10 @@ type replTranspiledImportInfo = {
     wildcard: boolean,
 };
 
+const StringReplaceAll = Function.prototype.call.bind(String.prototype.replaceAll);
+const randomUUID = crypto.randomUUID.bind(crypto);
+const safeUUID = () => StringReplaceAll(randomUUID(), '-', '') as string;
+
 export default class Transpiler extends swc.Compiler {
     constructor(config: swc.Options = {}) {
         super();
@@ -20,7 +24,7 @@ export default class Transpiler extends swc.Compiler {
 
     // REPL-specific adjustments needed for the code to work in a REPL context. (Ran before transpile)
     preprocess(code: string): string {
-        return ';void 0;' + code
+        return code
             .replaceAll(/import(?:(?:(?:[ \n\t]+([^ *\n\t{},]+)[ \n\t]*(?:,|[ \n\t]+))?([ \n\t]*\{(?:[ \n\t]*[^ \n\t"'{}]+[ \n\t]*,?)+\})?[ \n\t]*)|[ \n\t]*\*[ \n\t]*as[ \n\t]+([^ \n\t{}]+)[ \n\t]+)from[ \n\t]*(?:['"])([^'"\n]+)(['"])/g,
                 ($0, defaultVar?: string, destructuredVars?: string, wildcardVar?: string, moduleIdentifier: string = '') => {
                     let str = `${$0};/*$replTranspiledImport:`;
@@ -43,22 +47,21 @@ export default class Transpiler extends swc.Compiler {
 
     // REPL-specific adjustments needed for the code to work in a REPL context. (Ran after transpile)
     postprocess(code: string): string {
-        return code
-            //.replaceAll(/(?:let|const) ([A-Za-z_$\d]+? ?=.)/g,
-            //    ($0, varname: string) => 'var ' + varname)
-            //.replaceAll(/(?:let|const) ?({[A-Za-z_$, \t\n\d]+?}) ?(=.)/g,
-            //    ($0, vars: string, end: string) => `var ${vars} ${end}`)
+        let importsData = [] as ({ requireVar: string, requireStr: string, info: replTranspiledImportInfo, uuid: string })[];
+        code = '"use strict";void 0;' + code
             .replaceAll(/(?:var|let|const) (_.+?) = require\("(.+?)"\);[ \t\n;]*\/\*\$replTranspiledImport:({.+?})\*\//g,
                 ($0, requireVar: string, requireStr: string, infoStr: string) => {
                     const info = JSON.parse(infoStr) as replTranspiledImportInfo;
-                    let str = `const ${requireVar} = require("${requireStr}");`;
+                    const uuid = safeUUID();
+                    importsData.push({ requireVar, requireStr, info, uuid });
+                    let str = `const ${requireVar}${uuid} = require("${requireStr}");`;
                     if (info.varname) {
-                        str += `var ${info.varname} = ${requireVar}`;
-                        if (!info.wildcard) str += `.default??${requireVar};`;
+                        str += `const ${info.varname}=${requireVar}${uuid}`;
+                        if (!info.wildcard) str += `.default??${requireVar}${uuid};`;
                         str += ';';
                     }
                     if (info.destructuredVars) {
-                        let ifstr = 'if(!(';
+                        let ifstr = 'true.valueOf["@@replTemp"]={};if(!(';
                         let delstr = ')){';
                         info.destructuredVars.forEach(variable => {
                             let exportStr = variable;
@@ -66,18 +69,22 @@ export default class Transpiler extends swc.Compiler {
                             if (match) {
                                 variable = match[2];
                                 exportStr = match[1];
-                                str += `var { ${exportStr}: ${variable} } = ${requireVar};`;
-                            } else str += `var { ${variable} } = ${requireVar};`;
-                            ifstr += `((async function*(){}).constructor['@@REPLGlobal'].temp.$v="${exportStr}") in ${requireVar}&&`;
-                            delstr += `delete (async function*(){}).constructor['@@REPLGlobal'].global["${variable}"];`;
+                                str += `const{${exportStr}:${variable}}=${requireVar}${uuid};`;
+                            } else str += `const{${variable}}=${requireVar}${uuid};`;
+                            ifstr += `(true.valueOf['@@replTemp'].$v="${exportStr}") in ${requireVar}${uuid}&&`;
+                            delstr += `delete true.valueOf['@@replTemp']["${variable}"];`;
                         });
-                        const errmsg = `Import named '\${(async function*(){}).constructor['@@REPLGlobal'].temp.$v}' not found in module '${requireStr}'.`;
-                        delstr += `throw new (async function*(){}).constructor['@@REPLGlobal'].SyntaxError(\`${errmsg}\`);};`;
+                        const errmsg = `Import named '\${true.valueOf["@@replTemp"].$v}' not found in module '${requireStr}'.`;
+                        delstr += `{const $err=new SyntaxError(\`${errmsg}\`);$err.stack='';throw $err;}};`;
                         ifstr = ifstr.slice(0, -2);
                         str += ifstr + delstr;
                     }
                     return str + '\n';
                 });
+        for (const importData of importsData) {
+            code = code.replaceAll(new RegExp(`void\\s+${importData.requireVar}`, 'g'), `void ${importData.requireVar}${importData.uuid}`);
+        }
+        return code;
     }
 
     readonly #config: swc.Options;
