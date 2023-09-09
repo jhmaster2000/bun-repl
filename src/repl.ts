@@ -125,10 +125,12 @@ class REPLServer extends WebSocket {
         const server = serve({
             inspector: true,
             development: true,
+            port: process.env.BUN_REPL_PORT ?? 0,
             // @ts-expect-error stub
             fetch() {},
         });
         super(`ws://${server.hostname}:${server.port}/bun:inspect`);
+        debuglog(`[ws/open] repl server listening on ${$.blueBright}ws://${server.hostname}:${server.port}/bun:inspect`);
         this.onmessage = (event) => {
             try {
                 const data = JSONParse(wsDataToString(event.data)) as JSC.Response<keyof JSC.ResponseMap>;
@@ -286,7 +288,7 @@ class REPLServer extends WebSocket {
     }
     /** Run a snippet of code in the REPL */
     async eval(code: string, topLevelAwaited = false, extraOut?: { errored?: boolean, noPrintError?: boolean }): Promise<string> {
-        debuglog(`transpiled code: ${code}`);
+        debuglog(`transpiled code: ${code.trimEnd()}`);
         const { result, wasThrown } = await this.rawEval(code);
         let remoteObj: EvalRemoteObject = result;
 
@@ -348,6 +350,7 @@ async function loadHistoryData(): Promise<{ path: string, lines: string[] }> {
     if (process.env.XDG_DATA_HOME && (out = await tryLoadHistory(process.env.XDG_DATA_HOME, 'bun'))) return out;
     else if (process.env.BUN_INSTALL && (out = await tryLoadHistory(process.env.BUN_INSTALL))) return out;
     else {
+        debuglog('Trying to load history from fallback location at home directory.');
         const homedir = os.homedir();
         return await tryLoadHistory(homedir) ?? { path: join(homedir, '.bun_repl_history'), lines: [] };
     }
@@ -355,10 +358,17 @@ async function loadHistoryData(): Promise<{ path: string, lines: string[] }> {
 async function tryLoadHistory(...dir: string[]) {
     const path = join(...dir, '.bun_repl_history');
     try {
+        debuglog(`Trying to load REPL history from ${path}`);
         const file = Bun.file(path);
-        if (!await file.exists()) await Bun.write(path, '');
+        if (!await file.exists()) {
+            debuglog(`History file not found, creating new one at ${path}`);
+            await Bun.write(path, '');
+        }
+        debuglog(`Loading history file from ${path}`);
         return { path, lines: (await file.text()).split('\n') };
-    } catch {
+    } catch (err) {
+        debuglog(`Failed to load history file from ${path}\nError will be printed below:`);
+        if (IS_DEBUG) console.error(err);
         return null;
     }
 }
@@ -388,8 +398,10 @@ export default {
             debuglog('Debug mode enabled.');
             const repl = new REPLServer();
             await repl.ready;
+            debuglog('REPL server initialized.');
             // TODO: How to make Bun transpiler not dead-code-eliminate lone constants like "5"?
             const transpiler = new SWCTranspiler();
+            debuglog('Transpiler initialized.');
             /*new Bun.Transpiler({
                 target: 'bun',
                 loader: 'ts',
@@ -432,6 +444,7 @@ export default {
                 );
                 historySize = 1000;
             }
+            debuglog(`REPL history data loaded: (${history.lines.length} lines) ${history.path}`);
             const rl = readline.createInterface({
                 input: process.stdin,
                 output: process.stdout,
@@ -447,6 +460,7 @@ export default {
             //    return [hits.length ? hits : completions, line];
             //}
             });
+            debuglog('readline interface created.');
             console.log(`Welcome to Bun v${Bun.version}\nType ".help" for more information.`);
             //* Only primordials should be used beyond this point!
             rl.on('close', () => {
@@ -458,7 +472,6 @@ export default {
             rl.on('history', newHistory => {
                 history.lines = newHistory;
             }); 
-            rl.prompt();
             rl.on('line', async line => {
                 line = StringTrim(line);
                 if (!line) return rl.prompt();
@@ -519,6 +532,8 @@ export default {
                 }
                 rl.prompt();
             });
+            debuglog('readline interface event handlers registered.');
+            rl.prompt();
         } catch (err) {
             console.error('Internal REPL Error:');
             console.error(err, '\nThis should not happen! Search GitHub issues https://bun.sh/issues or ask for #help in https://bun.sh/discord');

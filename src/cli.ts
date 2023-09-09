@@ -47,5 +47,6 @@ Options:
 
 Environment variables:
     BUN_REPL_HISTORY_SIZE    The maximum number of lines to store in the history. (Default: 1000)
-    BUN_REPL_PROMPT          A string to override the default REPL prompt with. (Default: "> ")`);
+    BUN_REPL_PROMPT          A string to override the default REPL prompt with. (Default: "> ")
+    BUN_REPL_PORT            The port for the REPL's local server to use. (Default: random free port)`);
 }
