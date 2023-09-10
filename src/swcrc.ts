@@ -3,7 +3,7 @@ import swc from '@swc/core';
 const swcrc: swc.Options = {
     inlineSourcesContent: false,
     sourceMaps: true,
-    isModule: true,
+    isModule: !process.argv.includes('--sloppy'),
     minify: false,
     swcrc: false,
     filename: '$bun$repl.ts',
