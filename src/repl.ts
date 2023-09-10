@@ -64,6 +64,7 @@ const MapGet = Function.prototype.call.bind(Map.prototype.get) as Primordial<Map
 const MapSet = Function.prototype.call.bind(Map.prototype.set) as Primordial<Map<any, any>, 'set'>;
 const MapDelete = Function.prototype.call.bind(Map.prototype.delete) as Primordial<Map<any, any>, 'delete'>;
 const console = {
+    dir:   GLOBAL.console.dir,
     log:   GLOBAL.console.log,
     info:  GLOBAL.console.info,
     warn:  GLOBAL.console.warn,
@@ -359,10 +360,11 @@ async function tryLoadHistory(...dir: string[]) {
     const path = join(...dir, '.bun_repl_history');
     try {
         debuglog(`Trying to load REPL history from ${path}`);
-        const file = Bun.file(path);
+        let file = Bun.file(path);
         if (!await file.exists()) {
             debuglog(`History file not found, creating new one at ${path}`);
-            await Bun.write(path, '');
+            await Bun.write(path, '\n');
+            file = Bun.file(path); // BUG: Bun.file doesn't update the file's status after writing to it
         }
         debuglog(`Loading history file from ${path}`);
         return { path, lines: (await file.text()).split('\n') };
