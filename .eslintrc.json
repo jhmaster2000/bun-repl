@@ -59,7 +59,8 @@
             {
                 "types": {
                     "String": false,
-                    "Function": false
+                    "Function": false,
+                    "Object": false
                 },
                 "extendDefaults": true
             }
