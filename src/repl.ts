@@ -336,6 +336,12 @@ class REPLServer extends WebSocket {
                     const awaited = await this.request('Runtime.awaitPromise', { promiseObjectId: result.objectId, generatePreview: false });
                     remoteObj = awaited.result;
                     remoteObj.wasThrown = awaited.wasThrown;
+                    if (remoteObj.type === 'undefined') {
+                        console.warn(
+                            $.yellow+$.dim+'[!] REPL top-level await is still very experimental and prone to failing on complex code snippets.\n' +
+                            '    You are seeing this because top-level await usage was detected with undefined as the result, if that was expected, you can ignore this.'+$.reset
+                        );
+                    }
                 }
                 if (result.preview.properties?.find(p => p.name === 'status')?.value === 'rejected') {
                     remoteObj.wasRejectedPromise = true;
