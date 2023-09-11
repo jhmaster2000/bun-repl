@@ -406,6 +406,14 @@ function tryProcessTopLevelAwait(src: string) {
     return hoisted + transformed;
 }
 
+async function tryGetPackageVersion() {
+    try {
+        return 'v' + (await import('../package.json')).default.version;
+    } catch {
+        return $.dim+$.redBright+'failed to retrieve version'+$.reset;
+    }
+}
+
 export default {
     async start(singleshotCode?: string, printSingleshot = false) {
         try {
@@ -506,6 +514,7 @@ export default {
                         case '.info': {
                             console.log(
                                 `Running on Bun v${Bun.version} ${$.gray}(${Bun.revision})${$.reset}\n` +
+                                `    REPL version: ${await tryGetPackageVersion()}\n` +
                                 `    Color mode: ${Bun.enableANSIColors ? `${$.greenBright}Enabled` : 'Disabled'}${$.reset}\n` +
                                 `    Debug mode: ${IS_DEBUG ? `${$.greenBright}Enabled` : $.dim+'Disabled'}${$.reset}`
                             );
