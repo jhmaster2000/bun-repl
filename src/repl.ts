@@ -75,6 +75,7 @@ const console = {
 };
 const IS_DEBUG = process.argv.includes('--debug');
 const debuglog = IS_DEBUG ? (...args: string[]) => (console.debug($.dim+'DEBUG:', ...args, $.reset)) : () => void 0;
+//const SLOPPY_MODE = process.argv.includes('--sloppy');
 
 type Primordial<T, M extends keyof T> = <S extends T>(
     self: S, ...args: Parameters<S[M] extends (...args: any) => any ? S[M] : never>
@@ -290,29 +291,40 @@ class REPLServer extends WebSocket {
     /** Run a snippet of code in the REPL */
     async eval(code: string, topLevelAwaited = false, extraOut?: { errored?: boolean, noPrintError?: boolean }): Promise<string> {
         debuglog(`transpiled code: ${code.trimEnd()}`);
-        const { result, wasThrown } = await this.rawEval(code);
+        const { result, wasThrown: thrown } = await this.rawEval(code);
         let remoteObj: EvalRemoteObject = result;
+        remoteObj.wasThrown = thrown;
 
-        switch (result.type) {
-            case 'object': {
-                if (result.subtype === 'null') break;
-                if (!result.objectId) throw new EvalError(`Received non-null object without objectId: ${JSONStringify(result)}`);
-                if (result.className === 'Promise') {
-                    if (!result.preview) throw new EvalError(`Received Promise object without preview: ${JSONStringify(result)}}`);
-                    if (topLevelAwaited) {
-                        const awaited = await this.request('Runtime.awaitPromise', { promiseObjectId: result.objectId, generatePreview: false });
-                        remoteObj = awaited.result;
-                    }
-                    if (result.preview.properties?.find(p => p.name === 'status')?.value === 'rejected') {
-                        remoteObj.wasRejectedPromise = true;
-                    }
-                    break;
+        if (result.type === 'object') ObjectTypeHandler: {
+            if (result.subtype === 'null') break ObjectTypeHandler;
+            if (!result.objectId) throw new EvalError(`Received non-null object without objectId: ${JSONStringify(result)}`);
+            if (result.className === 'Promise') {
+                if (!result.preview) throw new EvalError(`Received Promise object without preview: ${JSONStringify(result)}}`);
+                if (topLevelAwaited) {
+                    const awaited = await this.request('Runtime.awaitPromise', { promiseObjectId: result.objectId, generatePreview: false });
+                    remoteObj = awaited.result;
+                    remoteObj.wasThrown = awaited.wasThrown;
                 }
-                break;
+                if (result.preview.properties?.find(p => p.name === 'status')?.value === 'rejected') {
+                    remoteObj.wasRejectedPromise = true;
+                }
+                break ObjectTypeHandler;
             }
-            default: break;
         }
 
+        //! bug workaround, bigints are being passed as undefined to Runtime.callFunctionOn (?)
+        if (remoteObj.type === 'bigint') {
+            if (!remoteObj.description) throw new EvalError(`Received BigInt value without description: ${JSONStringify(remoteObj)}`);
+            const value = BigInt(remoteObj.description.slice(0, -1));
+            Reflect.set(GLOBAL, remoteObj.wasThrown ? '_error' : '_', value);
+            return (remoteObj.wasThrown ? $.red + 'Uncaught ' + $.reset : '') + SafeInspect(value,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                Reflect.get(GLOBAL, 'repl')?.writer?.options as utl.InspectOptions
+                ?? { colors: Bun.enableANSIColors, showProxy: true }
+            );
+        }
+
+        const { wasThrown } = remoteObj;
         const REPL_INTERNALS = '@@bunReplInternals';
         Object.defineProperty(GLOBAL, REPL_INTERNALS, {
             value: { SafeInspect, SafeGet, StringReplace },
@@ -434,7 +446,7 @@ export default {
                 if (!extraInfo.noPrintError) {
                     if (extraInfo.errored) console.error(evaled);
                     else if (printSingleshot) console.log(evaled);
-                }
+                } else if (!extraInfo.errored && printSingleshot) console.log(evaled);
                 return exit(0);
             }
             const history = await loadHistoryData();
@@ -464,6 +476,9 @@ export default {
             });
             debuglog('readline interface created.');
             console.log(`Welcome to Bun v${Bun.version}\nType ".help" for more information.`);
+            console.warn(
+                `${$.yellow+$.dim}[!] Please note that the REPL implementation is still experimental!\n` +
+                `    Don't consider it to be representative of the stability or behavior of Bun overall.${$.reset}`);
             //* Only primordials should be used beyond this point!
             rl.on('close', () => {
                 Bun.write(history.path, history.lines.filter(l => l !== '.exit').join('\n'))
@@ -530,7 +545,7 @@ export default {
                     if (!extraInfo.noPrintError) {
                         if (extraInfo.errored) console.error(evaled);
                         else console.log(evaled);
-                    }
+                    } else if (!extraInfo.errored) console.log(evaled);
                 }
                 rl.prompt();
             });

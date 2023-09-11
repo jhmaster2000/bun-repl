@@ -49,7 +49,7 @@ export default class Transpiler extends swc.Compiler {
     // REPL-specific adjustments needed for the code to work in a REPL context. (Ran after transpile)
     postprocess(code: string): string {
         let importsData = [] as ({ requireVar: string, requireStr: string, info: replTranspiledImportInfo, uuid: string })[];
-        code = (SLOPPY_MODE ? '' : '"use strict";void 0;') + code
+        code = (SLOPPY_MODE ? '' : '"use strict";void 0;\n') + code
             .replaceAll(/(?:var|let|const) (_.+?) = require\("(.+?)"\);[ \t\n;]*\/\*\$replTranspiledImport:({.+?})\*\//g,
                 ($0, requireVar: string, requireStr: string, infoStr: string) => {
                     const info = JSON.parse(infoStr) as replTranspiledImportInfo;
