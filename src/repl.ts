@@ -1,5 +1,5 @@
 import { type JSC } from 'bun-devtools';
-import { join } from 'node:path';
+import { join, dirname, basename, resolve as pathresolve } from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline';
 import $ from './colors';
@@ -72,6 +72,7 @@ const console = {
     debug: GLOBAL.console.debug,
     clear: GLOBAL.console.clear,
     trace: GLOBAL.console.trace,
+    assert: GLOBAL.console.assert,
 };
 const IS_DEBUG = process.argv.includes('--debug');
 const debuglog = IS_DEBUG ? (...args: string[]) => (console.debug($.dim+'DEBUG:', ...args, $.reset)) : () => void 0;
@@ -171,23 +172,24 @@ class REPLServer extends WebSocket {
                 Object.defineProperty(GLOBAL, 'repl', { value: repl });
                 // import.meta.resolveSync takes a *file* path for the parent.
                 // Bun.resolveSync takes a *directory* path for the parent.
-                const { resolveSync } = import.meta;
+                const { resolveSync } = Bun;
                 const ArrayIncludes = Function.prototype.call.bind(Array.prototype.includes) as Primordial<Array<any>, 'includes'>;
                 const nodePrefixedModules = repl.builtinModules
                     .filter(x => x[0] !== '_' && !x.includes(':') && !['undici', 'ws', 'detect-libc', 'bun'].includes(x));
+                // eslint-disable-next-line unicorn/prefer-module
+                const originalRequire = require;
                 Object.defineProperty(GLOBAL, 'require', { value: function require(moduleID: string) {
                     if (ArrayIncludes(nodePrefixedModules, moduleID)) moduleID = `node:${moduleID}`;
                     if (moduleID === 'node:repl') return repl; // polyfill
                     if (moduleID === 'bun') return bun; // workaround
-                    const here = join(cwd(), swcrc.filename!);
+                    const here = cwd();
                     try {
                         moduleID = resolveSync(moduleID, here);
                     } catch {
-                        //Bun.gc(true); // attempt to mitigate the resolveSync segfault, doesn't fully prevent it but seems to make it a little less frequent
                         // TODO: attempt to load the module from the global directory if it's not found in the local directory
                         throw {
                             name: 'ResolveError',
-                            message: `Cannot find module "${moduleID}" from "${here}"`,
+                            message: `Cannot find module "${moduleID}" from "${join(here, swcrc.filename!)}"`,
                             specifier: moduleID
                         };
                     }
@@ -203,6 +205,27 @@ class REPLServer extends WebSocket {
                         throw err;
                     }
                 } });
+                Object.defineProperties(GLOBAL.require, {
+                    resolve: { value: function resolve(moduleID: string, { paths = ['.'] } = {}) {
+                        if (paths.length === 0) paths.push('.');
+                        const base = cwd();
+                        for (const path of paths) {
+                            const from = pathresolve(base, path);
+                            try {
+                                return resolveSync(moduleID, from);
+                            } catch { continue; }
+                        }
+                        throw {
+                            name: 'ResolveError',
+                            message: `Cannot find module "${moduleID}"`,
+                            specifier: moduleID
+                        };
+                    } },
+                    main: { value: Reflect.get(originalRequire, 'main') as unknown },
+                    extensions: { value: Reflect.get(originalRequire, 'extensions') as unknown },
+                    cache: { value: Reflect.get(originalRequire, 'cache') as unknown },
+                });
+                GLOBAL.require.resolve.paths = function paths() { return []; }; // Bun's polyfill of this function is also like this for now
                 const REQUIRE = GLOBAL.require;
                 for (const module of nodePrefixedModules) {
                     if (module.includes('/')) continue;
@@ -226,6 +249,15 @@ class REPLServer extends WebSocket {
                     descriptor.get = getter;
                     Object.defineProperty(GLOBAL, module.slice(4), descriptor);
                 }
+                Object.defineProperty(GLOBAL, '@@bunReplRuntimeHelpers', {
+                    value: Object.freeze({
+                        join, dirname, basename, resolve: pathresolve, getcwd: process.cwd,
+                        pathToFileURL: Bun.pathToFileURL, fileURLToPath: Bun.fileURLToPath,
+                        StringStartsWith: Function.prototype.call.bind(String.prototype.startsWith),
+                        ObjectFreeze: Object.freeze,
+                    }),
+                });
+                Object.defineProperty(GLOBAL, 'eval', { value: eval, configurable: false, writable: false }); // used by inlined import.meta trick
                 Object.freeze(Promise); // must preserve .name property
                 // eslint-disable-next-line @typescript-eslint/no-floating-promises
                 Object.freeze(Promise.prototype); // too many possible pitfalls
