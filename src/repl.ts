@@ -52,6 +52,7 @@ const { isBuffer } = Buffer;
 const JSONParse = JSON.parse;
 const JSONStringify = JSON.stringify;
 const ObjectAssign = Object.assign;
+const ReflectSet = Reflect.set;
 const BufferToString = Function.prototype.call.bind(Reflect.get(Buffer.prototype, 'toString') as Buffer['toString']) as Primordial<Buffer, 'toString'>;
 const StringTrim = Function.prototype.call.bind(String.prototype.trim) as Primordial<String, 'trim'>;
 const StringPrototypeSplit = Function.prototype.call.bind(String.prototype.split) as Primordial<String, 'split'>;
@@ -526,13 +527,11 @@ export default {
                 `${$.yellow+$.dim}[!] Please note that the REPL implementation is still experimental!\n` +
                 `    Don't consider it to be representative of the stability or behavior of Bun overall.${$.reset}`);
             //* Only primordials should be used beyond this point!
-            rl.on("SIGINT", () => {
-                if (rl.line.length === 0) {
-                    rl.close();
-                } else {
-                    console.log("");
-                    // @ts-ignore
-                    rl.line = "";
+            rl.on('SIGINT', () => {
+                if (rl.line.length === 0) rl.close();
+                else {
+                    console.log('');
+                    ReflectSet(rl, 'line', '');
                     rl.prompt();
                 }
             });
