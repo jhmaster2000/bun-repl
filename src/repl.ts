@@ -324,7 +324,7 @@ class REPLServer extends WebSocket {
     }
     /** Run a snippet of code in the REPL */
     async eval(code: string, topLevelAwaited = false, extraOut?: { errored?: boolean, noPrintError?: boolean }): Promise<string> {
-        debuglog(`transpiled code: ${code.trimEnd()}`);
+        debuglog(`transpiled code: ${StringTrim(code)}`);
         const { result, wasThrown: thrown } = await this.rawEval(code);
         let remoteObj: EvalRemoteObject = result;
         remoteObj.wasThrown = thrown;
@@ -458,6 +458,12 @@ export default {
     async start(singleshotCode?: string, printSingleshot = false) {
         try {
             debuglog('Debug mode enabled.');
+            if (IS_DEBUG) { // while debuglog by itself is handy for simple strings its important to note JS will still evaluate the arguments
+                debuglog(
+                    `REPL version ${await tryGetPackageVersion()} running on Bun v${Bun.version}+${Bun.revision} (${process.platform} ${process.arch})`
+                );
+                debuglog(`OS Info: ${os.type()} -- ${os.release()} -- ${os.version()}`);
+            }
             const repl = new REPLServer();
             await repl.ready;
             debuglog('REPL server initialized.');
