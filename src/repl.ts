@@ -526,6 +526,17 @@ export default {
                 `${$.yellow+$.dim}[!] Please note that the REPL implementation is still experimental!\n` +
                 `    Don't consider it to be representative of the stability or behavior of Bun overall.${$.reset}`);
             //* Only primordials should be used beyond this point!
+            rl.on("SIGINT", () => {
+                if (rl.line.length === 0) {
+                    rl.close();
+                } else {
+                    console.log("");
+                    // @ts-ignore
+                    rl.line = "";
+                    rl.prompt();
+                }
+            });
+
             rl.on('close', () => {
                 Bun.write(history.path, history.lines.filter(l => l !== '.exit').join('\n'))
                     .catch(() => console.warn(`[!] Failed to save REPL history to ${history.path}!`));
