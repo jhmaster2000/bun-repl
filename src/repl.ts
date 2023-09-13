@@ -52,15 +52,20 @@ const { isBuffer } = Buffer;
 const JSONParse = JSON.parse;
 const JSONStringify = JSON.stringify;
 const ObjectAssign = Object.assign;
+const ObjectDefineProperty = Object.defineProperty;
+const ReflectGet = Reflect.get;
 const ReflectSet = Reflect.set;
+const ReflectDeleteProperty = Reflect.deleteProperty;
 const BufferToString = Function.prototype.call.bind(Reflect.get(Buffer.prototype, 'toString') as Buffer['toString']) as Primordial<Buffer, 'toString'>;
 const StringTrim = Function.prototype.call.bind(String.prototype.trim) as Primordial<String, 'trim'>;
+const StringPrototypeSlice = Function.prototype.call.bind(String.prototype.slice) as Primordial<String, 'slice'>;
 const StringPrototypeSplit = Function.prototype.call.bind(String.prototype.split) as Primordial<String, 'split'>;
 const StringPrototypeIncludes = Function.prototype.call.bind(String.prototype.includes) as Primordial<String, 'includes'>;
 const StringReplace = Function.prototype.call.bind(String.prototype.replace) as Primordial<String, 'replace'>;
 const StringPrototypeReplaceAll = Function.prototype.call.bind(String.prototype.replaceAll) as Primordial<String, 'replaceAll'>;
 const ArrayPrototypePop = Function.prototype.call.bind(Array.prototype.pop) as Primordial<Array<any>, 'pop'>;
 const ArrayPrototypeJoin = Function.prototype.call.bind(Array.prototype.join) as Primordial<Array<any>, 'join'>;
+const ArrayPrototypeFind = Function.prototype.call.bind(Array.prototype.find) as Primordial<Array<any>, 'find'>;
 const ArrayPrototypeFilter = Function.prototype.call.bind(Array.prototype.filter) as Primordial<Array<any>, 'filter'>;
 const MapGet = Function.prototype.call.bind(Map.prototype.get) as Primordial<Map<any, any>, 'get'>;
 const MapSet = Function.prototype.call.bind(Map.prototype.set) as Primordial<Map<any, any>, 'set'>;
@@ -345,7 +350,7 @@ class REPLServer extends WebSocket {
                         );
                     }
                 }
-                if (result.preview.properties?.find(p => p.name === 'status')?.value === 'rejected') {
+                if (result.preview.properties && ArrayPrototypeFind(result.preview.properties, p => p.name === 'status')?.value === 'rejected') {
                     remoteObj.wasRejectedPromise = true;
                 }
                 break ObjectTypeHandler;
@@ -355,25 +360,25 @@ class REPLServer extends WebSocket {
         //! bug workaround, bigints are being passed as undefined to Runtime.callFunctionOn (?)
         if (remoteObj.type === 'bigint') {
             if (!remoteObj.description) throw new EvalError(`Received BigInt value without description: ${JSONStringify(remoteObj)}`);
-            const value = BigInt(remoteObj.description.slice(0, -1));
-            Reflect.set(GLOBAL, remoteObj.wasThrown ? '_error' : '_', value);
+            const value = BigInt(StringPrototypeSlice(remoteObj.description, 0, -1));
+            ReflectSet(GLOBAL, remoteObj.wasThrown ? '_error' : '_', value);
             return (remoteObj.wasThrown ? $.red + 'Uncaught ' + $.reset : '') + SafeInspect(value,
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                Reflect.get(GLOBAL, 'repl')?.writer?.options as utl.InspectOptions
+                ReflectGet(GLOBAL, 'repl')?.writer?.options as utl.InspectOptions
                 ?? { colors: Bun.enableANSIColors, showProxy: true }
             );
         }
 
         const { wasThrown } = remoteObj;
         const REPL_INTERNALS = '@@bunReplInternals';
-        Object.defineProperty(GLOBAL, REPL_INTERNALS, {
-            value: { SafeInspect, SafeGet, StringReplace },
+        ObjectDefineProperty(GLOBAL, REPL_INTERNALS, {
+            value: { SafeInspect, SafeGet, StringReplace, bunInspect },
             configurable: true,
         });
         const inspected = await this.request('Runtime.callFunctionOn', {
             objectId: this.#globalObjectID,
             functionDeclaration: `(v) => {
-                const { SafeInspect, SafeGet, StringReplace } = this['${REPL_INTERNALS}'];
+                const { SafeInspect, SafeGet, StringReplace, bunInspect } = this['${REPL_INTERNALS}'];
                 if (!${wasThrown!}) this._ = v;
                 else this._error = v;
                 if (v?.name === 'ResolveError')
@@ -381,12 +386,12 @@ class REPLServer extends WebSocket {
                     SafeGet(v, 'message') || \`Failed to resolve import "?" from "?"\`, / ".+" from ".+"$/,
                     \` ${$.blueBright}"\${SafeGet(v, 'specifier') ?? '<unresolved>'}"${$.whiteBright} from ${$.cyan+cwd()}/${swcrc.filename!}\`
                 )}${$.reset}\`;
-                if (${remoteObj.subtype === 'error'}) return Bun.inspect(v, { colors: ${Bun.enableANSIColors} });
+                if (${remoteObj.subtype === 'error'}) return bunInspect(v, { colors: ${Bun.enableANSIColors} });
                 return SafeInspect(v, this.repl?.writer?.options ?? { colors: ${Bun.enableANSIColors}, showProxy: true });
             }`,
             arguments: [remoteObj],
         });
-        Reflect.deleteProperty(GLOBAL, REPL_INTERNALS);
+        ReflectDeleteProperty(GLOBAL, REPL_INTERNALS);
         if (inspected.wasThrown) throw new EvalError(`Failed to inspect object: ${JSONStringify(inspected)}`);
         if (!this.typeof(inspected.result, 'string')) throw new EvalError(`Received non-string inspect result: ${JSONStringify(inspected)}`);
         if (extraOut) {
