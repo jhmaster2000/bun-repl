@@ -7,7 +7,7 @@ import swcrc from './swcrc';
 import SWCTranspiler from './transpiler';
 import repl from './module/repl';
 import utl, { $Proxy } from './utl';
-import bun, { serve, inspect as bunInspect } from 'bun';
+import bun, { serve, write, inspect as bunInspect } from 'bun';
 const { exit, cwd } = process;
 
 /**Safely get an object's property. If an error occurs, just treat it as non-existent. */
@@ -61,6 +61,7 @@ const StringReplace = Function.prototype.call.bind(String.prototype.replace) as 
 const StringPrototypeReplaceAll = Function.prototype.call.bind(String.prototype.replaceAll) as Primordial<String, 'replaceAll'>;
 const ArrayPrototypePop = Function.prototype.call.bind(Array.prototype.pop) as Primordial<Array<any>, 'pop'>;
 const ArrayPrototypeJoin = Function.prototype.call.bind(Array.prototype.join) as Primordial<Array<any>, 'join'>;
+const ArrayPrototypeFilter = Function.prototype.call.bind(Array.prototype.filter) as Primordial<Array<any>, 'filter'>;
 const MapGet = Function.prototype.call.bind(Map.prototype.get) as Primordial<Map<any, any>, 'get'>;
 const MapSet = Function.prototype.call.bind(Map.prototype.set) as Primordial<Map<any, any>, 'set'>;
 const MapDelete = Function.prototype.call.bind(Map.prototype.delete) as Primordial<Map<any, any>, 'delete'>;
@@ -537,8 +538,10 @@ export default {
             });
 
             rl.on('close', () => {
-                Bun.write(history.path, history.lines.filter(l => l !== '.exit').join('\n'))
-                    .catch(() => console.warn(`[!] Failed to save REPL history to ${history.path}!`));
+                write(
+                    history.path,
+                    ArrayPrototypeJoin(ArrayPrototypeFilter(history.lines, l => l !== '.exit'), '\n')
+                ).catch(() => console.warn(`[!] Failed to save REPL history to ${history.path}!`));
                 console.log(''); // ensure newline
                 exit(0);
             });
@@ -588,7 +591,11 @@ export default {
                         code = transpiler.postprocess(code);
                     } catch (e) {
                         const err = e as Error;
-                        console.error((err?.message ?? 'Unknown transpiler error.').split('\nCaused by:\n')[0].trim());
+                        console.error(
+                            StringTrim(StringPrototypeSplit(
+                                err?.message ?? 'Unknown transpiler error.', '\nCaused by:\n' as unknown as RegExp
+                            )[0])
+                        );
                         rl.prompt();
                         return;
                     }
