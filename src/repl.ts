@@ -85,7 +85,7 @@ const console = {
 const IS_DEBUG = process.argv.includes('--debug');
 const debuglog = IS_DEBUG ? (...args: string[]) => (console.debug($.dim+'DEBUG:', ...args, $.reset)) : () => void 0;
 //const SLOPPY_MODE = process.argv.includes('--sloppy');
-const NO_HISTORY = process.argv.includes('--no-history');
+const NO_HISTORY = process.env.BUN_REPL_NO_HISTORY || process.argv.includes('--no-history');
 
 type Primordial<T, M extends keyof T> = <S extends T>(
     self: S, ...args: Parameters<S[M] extends (...args: any) => any ? S[M] : never>
