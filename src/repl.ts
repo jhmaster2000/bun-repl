@@ -1,6 +1,6 @@
 import { type JSC } from 'bun-devtools';
 import { join, dirname, basename, resolve as pathresolve } from 'node:path';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readSync } from 'node:fs';
 import os from 'node:os';
 import readline from 'node:readline';
 import $ from './colors';
@@ -262,6 +262,55 @@ class REPLServer extends WebSocket {
                     descriptor.get = getter;
                     Object.defineProperty(GLOBAL, module.slice(4), descriptor);
                 }
+                
+                // Yes, if someone types a 0xFFFF characters line, they will fill up the buffer.
+                // But that's very unlikely to happen, and if it does, it will just cutoff the line.
+                // Anyway this just a temporary workaround for https://github.com/oven-sh/bun/issues/5267
+                const promptReuseBuffer = Buffer.allocUnsafe(0xFFFF);
+                const stdoutWrite = process.stdout.write.bind(process.stdout);
+                globalThis.prompt = function prompt(question: string = 'Prompt', defaultValue: unknown = null): string | null {
+                    stdoutWrite(question + ' ');
+                    let i = -1;
+                    // eslint-disable-next-line no-constant-condition
+                    while (true) {
+                        // This currently relies on https://github.com/oven-sh/bun/issues/5305
+                        // If that bug is fixed, this will break one way or another.
+                        const read = readSync(0, promptReuseBuffer, { length: 1, offset: ++i });
+                        if (read !== 1) {
+                            if (read === 0) { // This means the buffer got filled up (unlikely, but possible)
+                                stdoutWrite('\n');
+                                return BufferToString(promptReuseBuffer, 'utf8', 0, i) || defaultValue as string | null;
+                            }
+                            else throw new Error('Unexpected read length'); // This will tell us if the bug is fixed.
+                        }
+                        const char = promptReuseBuffer[i];
+                        if (char === 3) {
+                            stdoutWrite('^C\n');
+                            exit(0);
+                        }
+                        if (char === 4) {
+                            stdoutWrite('\n');
+                            return defaultValue as string | null;
+                        }
+                        if (char === 27) {
+                            stdoutWrite('^[');
+                            continue;
+                        }
+                        if (char === 127) {
+                            i--;
+                            if (i < 0) continue;
+                            stdoutWrite('\b \b');
+                            if (promptReuseBuffer[i] === 27) stdoutWrite('\b \b');
+                            i--;
+                            continue;
+                        }
+                        stdoutWrite(BufferToString(promptReuseBuffer, 'utf8', i, i + 1));
+                        if (char === 13 || char === 10) {
+                            stdoutWrite('\n');
+                            return BufferToString(promptReuseBuffer, 'utf8', 0, i) || defaultValue as string | null;
+                        }
+                    }
+                };
                 Object.defineProperty(GLOBAL, '@@bunReplRuntimeHelpers', {
                     value: Object.freeze({
                         join, dirname, basename, resolve: pathresolve, getcwd: process.cwd,
@@ -543,6 +592,9 @@ export default {
             //}
             });
             debuglog('readline interface created.');
+            process.on('exit', () => {
+                rl.close();
+            });
             console.log(`Welcome to Bun v${Bun.version}\nType ".help" for more information.`);
             console.warn(
                 `${$.yellow+$.dim}[!] Please note that the REPL implementation is still experimental!\n` +
@@ -556,7 +608,6 @@ export default {
                     rl.prompt();
                 }
             });
-
             rl.on('close', () => {
                 if (!NO_HISTORY) write(
                     history.path,
