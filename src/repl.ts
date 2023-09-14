@@ -50,6 +50,7 @@ const GLOBAL = globalThis;
 const { Buffer, WebSocket, Map, EvalError, TypeError, Error } = GLOBAL;
 //const Promise: PromiseConstructor<any> = GLOBAL.Promise; // TS bug?
 const { isBuffer } = Buffer;
+const SymbolToStringTag = Symbol.toStringTag;
 const JSONParse = JSON.parse;
 const JSONStringify = JSON.stringify;
 const ObjectAssign = Object.assign;
@@ -57,6 +58,7 @@ const ObjectDefineProperty = Object.defineProperty;
 const ReflectGet = Reflect.get;
 const ReflectSet = Reflect.set;
 const ReflectDeleteProperty = Reflect.deleteProperty;
+const FunctionApply = Function.prototype.call.bind(Function.prototype.apply) as Primordial<Function, 'apply'>;
 const BufferToString = Function.prototype.call.bind(Reflect.get(Buffer.prototype, 'toString') as Buffer['toString']) as Primordial<Buffer, 'toString'>;
 const StringTrim = Function.prototype.call.bind(String.prototype.trim) as Primordial<String, 'trim'>;
 const StringPrototypeSlice = Function.prototype.call.bind(String.prototype.slice) as Primordial<String, 'slice'>;
@@ -82,6 +84,8 @@ const console = {
     trace: GLOBAL.console.trace,
     assert: GLOBAL.console.assert,
 };
+// Uncomment below for extreme debugging
+//for (const k in console) console[k as keyof typeof console] = GLOBAL.console.trace;
 const IS_DEBUG = process.argv.includes('--debug');
 const debuglog = IS_DEBUG ? (...args: string[]) => (console.debug($.dim+'DEBUG:', ...args, $.reset)) : () => void 0;
 //const SLOPPY_MODE = process.argv.includes('--sloppy');
@@ -267,6 +271,8 @@ class REPLServer extends WebSocket {
                     }),
                 });
                 Object.defineProperty(GLOBAL, 'eval', { value: eval, configurable: false, writable: false }); // used by inlined import.meta trick
+                Object.defineProperty(GLOBAL, 'Object', { value: Object, configurable: false, writable: false }); // used by swc
+                Object.freeze(Object); // bun's node:events polyfill relies on this
                 Object.freeze(Promise); // must preserve .name property
                 // eslint-disable-next-line @typescript-eslint/no-floating-promises
                 Object.freeze(Promise.prototype); // too many possible pitfalls
@@ -277,8 +283,8 @@ class REPLServer extends WebSocket {
                     Reflect.set(iterable.prototype, key, function (this: typeof iterable, ...argz: any[]) {
                         // eslint-disable-next-line @typescript-eslint/no-this-alias
                         const thiz = this;
-                        function* wrappedIter() { yield* original.apply(thiz, argz); }
-                        return Object.defineProperty(wrappedIter(), Symbol.toStringTag, { value: name, configurable: true });
+                        function* wrappedIter() { yield* FunctionApply(original, thiz, argz) as Generator; }
+                        return ObjectDefineProperty(wrappedIter(), SymbolToStringTag, { value: name, configurable: true });
                     });
                 };
                 wrapIterator(Array);
@@ -605,11 +611,19 @@ export default {
                         code = transpiler.postprocess(code);
                     } catch (e) {
                         const err = e as Error;
+                        if (err.stack?.includes('@swc/core')) {
+                            console.error(
+                                'Internal failure due to global builtins tampering, this is not a bug but a temporary limitation of the REPL.\n' +
+                                'Please do not report this and avoid tampering with the global builtins in the REPL.'
+                            );
+                            exit(0);
+                        }
                         console.error(
                             StringTrim(StringPrototypeSplit(
                                 err?.message ?? 'Unknown transpiler error.', '\nCaused by:\n' as unknown as RegExp
                             )[0])
                         );
+                        if (IS_DEBUG) console.error(e);
                         rl.prompt();
                         return;
                     }
