@@ -1,5 +1,6 @@
 import { type JSC } from 'bun-devtools';
 import { join, dirname, basename, resolve as pathresolve } from 'node:path';
+import { readFileSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import readline from 'node:readline';
 import $ from './colors';
@@ -84,6 +85,7 @@ const console = {
 const IS_DEBUG = process.argv.includes('--debug');
 const debuglog = IS_DEBUG ? (...args: string[]) => (console.debug($.dim+'DEBUG:', ...args, $.reset)) : () => void 0;
 //const SLOPPY_MODE = process.argv.includes('--sloppy');
+const NO_HISTORY = process.argv.includes('--no-history');
 
 type Primordial<T, M extends keyof T> = <S extends T>(
     self: S, ...args: Parameters<S[M] extends (...args: any) => any ? S[M] : never>
@@ -404,6 +406,7 @@ class REPLServer extends WebSocket {
 }
 
 async function loadHistoryData(): Promise<{ path: string, lines: string[] }> {
+    if (NO_HISTORY) return { path: '', lines: [] };
     let out: { path: string; lines: string[]; } | null;
     if (process.env.XDG_DATA_HOME && (out = await tryLoadHistory(process.env.XDG_DATA_HOME, 'bun'))) return out;
     else if (process.env.BUN_INSTALL && (out = await tryLoadHistory(process.env.BUN_INSTALL))) return out;
@@ -417,14 +420,13 @@ async function tryLoadHistory(...dir: string[]) {
     const path = join(...dir, '.bun_repl_history');
     try {
         debuglog(`Trying to load REPL history from ${path}`);
-        let file = Bun.file(path);
-        if (!await file.exists()) {
+        if (!existsSync(path)) {
             debuglog(`History file not found, creating new one at ${path}`);
-            await Bun.write(path, '\n');
-            file = Bun.file(path); // BUG: Bun.file doesn't update the file's status after writing to it
+            await write(path, '\n');
+            // BUG: Bun.file doesn't update the file's status after writing to it
         }
         debuglog(`Loading history file from ${path}`);
-        return { path, lines: (await file.text()).split('\n') };
+        return { path, lines: readFileSync(path, 'utf8').split('\n') };
     } catch (err) {
         debuglog(`Failed to load history file from ${path}\nError will be printed below:`);
         if (IS_DEBUG) console.error(err);
@@ -517,7 +519,8 @@ export default {
                 );
                 historySize = 1000;
             }
-            debuglog(`REPL history data loaded: (${history.lines.length} lines) ${history.path}`);
+            if (NO_HISTORY) debuglog('Skipped history file loading due to --no-history flag.');
+            else debuglog(`REPL history data loaded: (${history.lines.length} lines) ${history.path}`);
             const rl = readline.createInterface({
                 input: process.stdin,
                 output: process.stdout,
@@ -549,7 +552,7 @@ export default {
             });
 
             rl.on('close', () => {
-                write(
+                if (!NO_HISTORY) write(
                     history.path,
                     ArrayPrototypeJoin(ArrayPrototypeFilter(history.lines, l => l !== '.exit'), '\n')
                 ).catch(() => console.warn(`[!] Failed to save REPL history to ${history.path}!`));

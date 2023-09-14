@@ -20,7 +20,7 @@ const singleshot = evalFlag !== -1 || printFlag !== -1;
 const singleshotCode = process.argv.slice((evalFlag !== -1 ? evalFlag : printFlag) + 1).join(' ');
 
 const validFlags = [
-    '-h', '--help', '-e', '--eval', '-p', '--print', '--debug', '--sloppy'
+    '-h', '--help', '-e', '--eval', '-p', '--print', '--debug', '--sloppy', '--no-history',
 ] as const;
 if (process.argv.length > 2) {
     for (const arg of process.argv.slice(2)) {
