@@ -667,6 +667,7 @@ export default {
                                 'Internal failure due to global builtins tampering, this is not a bug but a temporary limitation of the REPL.\n' +
                                 'Please do not report this and avoid tampering with the global builtins in the REPL.'
                             );
+                            if (IS_DEBUG) console.error(e);
                             exit(0);
                         }
                         console.error(
