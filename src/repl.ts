@@ -10,6 +10,7 @@ import repl from './module/repl';
 import utl, { $Proxy } from './utl';
 import bun, { serve, write, inspect as bunInspect } from 'bun';
 const { exit, cwd } = process;
+const stdoutWrite = process.stdout.write.bind(process.stdout);
 
 /**Safely get an object's property. If an error occurs, just treat it as non-existent. */
 export function SafeGet(obj: any, key: string | number | symbol): any {
@@ -58,14 +59,21 @@ const ObjectDefineProperty = Object.defineProperty;
 const ReflectGet = Reflect.get;
 const ReflectSet = Reflect.set;
 const ReflectDeleteProperty = Reflect.deleteProperty;
+const RegExpTest = Function.prototype.call.bind(RegExp.prototype.test) as Primordial<RegExp, 'test'>;
+const RegExpPrototypeSymbolReplace = Function.prototype.call.bind(RegExp.prototype[Symbol.replace]) as Primordial<RegExp, typeof Symbol.replace>;
 const FunctionApply = Function.prototype.call.bind(Function.prototype.apply) as Primordial<Function, 'apply'>;
 const BufferToString = Function.prototype.call.bind(Reflect.get(Buffer.prototype, 'toString') as Buffer['toString']) as Primordial<Buffer, 'toString'>;
 const StringTrim = Function.prototype.call.bind(String.prototype.trim) as Primordial<String, 'trim'>;
+const StringPadStart = Function.prototype.call.bind(String.prototype.padStart) as Primordial<String, 'padStart'>;
+const StringPadEnd = Function.prototype.call.bind(String.prototype.padEnd) as Primordial<String, 'padEnd'>;
+const StringRepeat = Function.prototype.call.bind(String.prototype.repeat) as Primordial<String, 'repeat'>;
+const StringMatchAll = Function.prototype.call.bind(String.prototype.matchAll) as Primordial<String, 'matchAll'>;
 const StringPrototypeSlice = Function.prototype.call.bind(String.prototype.slice) as Primordial<String, 'slice'>;
 const StringPrototypeSplit = Function.prototype.call.bind(String.prototype.split) as Primordial<String, 'split'>;
 const StringPrototypeIncludes = Function.prototype.call.bind(String.prototype.includes) as Primordial<String, 'includes'>;
 const StringReplace = Function.prototype.call.bind(String.prototype.replace) as Primordial<String, 'replace'>;
 const StringPrototypeReplaceAll = Function.prototype.call.bind(String.prototype.replaceAll) as Primordial<String, 'replaceAll'>;
+const ArrayPush = Function.prototype.call.bind(Array.prototype.push) as Primordial<Array<any>, 'push'>;
 const ArrayPrototypePop = Function.prototype.call.bind(Array.prototype.pop) as Primordial<Array<any>, 'pop'>;
 const ArrayPrototypeJoin = Function.prototype.call.bind(Array.prototype.join) as Primordial<Array<any>, 'join'>;
 const ArrayPrototypeFind = Function.prototype.call.bind(Array.prototype.find) as Primordial<Array<any>, 'find'>;
@@ -127,6 +135,17 @@ type SubtypeofToValueType<T extends RemoteObjectSubtype, BaseObj = { type: 'obje
     T extends 'class' ? { type: 'function', subtype: T, objectId: string, className: string, description: string, classPrototype: JSC.Runtime.RemoteObject; } :
     T extends 'proxy' ? BaseObj :
     T extends 'weakref' ? BaseObj : never;
+interface Keypress { sequence: string, name: string, ctrl: boolean, meta: boolean, shift: boolean }
+enum Modifier {
+    NONE  = 0b000,
+    CTRL  = 0b001,
+    ALT   = 0b010,
+    SHIFT = 0b100,
+    CTRL_ALT       = CTRL | ALT,
+    CTRL_SHIFT     = CTRL | SHIFT,
+    ALT_SHIFT      = ALT  | SHIFT,
+    CTRL_ALT_SHIFT = CTRL | ALT | SHIFT,
+}
 
 /** Convert a {@link WebSocket.onmessage} `event.data` value to a string. */
 function wsDataToString(data: Parameters<NonNullable<WebSocket['onmessage']>>[0]['data']): string {
@@ -267,7 +286,6 @@ class REPLServer extends WebSocket {
                 // But that's very unlikely to happen, and if it does, it will just cutoff the line.
                 // Anyway this just a temporary workaround for https://github.com/oven-sh/bun/issues/5267
                 const promptReuseBuffer = Buffer.allocUnsafe(0xFFFF);
-                const stdoutWrite = process.stdout.write.bind(process.stdout);
                 globalThis.prompt = function prompt(question: string = 'Prompt', defaultValue: unknown = null): string | null {
                     stdoutWrite(question + ' ');
                     let i = -1;
@@ -516,6 +534,35 @@ async function tryGetPackageVersion() {
     }
 }
 
+// Regex used for ANSI escape code splitting
+// Adopted from https://github.com/chalk/ansi-regex/blob/HEAD/index.js
+// License: MIT, authors: @sindresorhus, Qix-, arjunmehta and LitoMore
+// Matches all ansi escape code sequences in a string
+const ansiPattern =
+  "[\\u001B\\u009B][[\\]()#;?]*" +
+  "(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*" +
+  "|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)" +
+  "|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))";
+const ansi = new RegExp(ansiPattern, "g");
+/** Remove all VT control characters. Use to estimate displayed string width. */
+function stripVTControlCharacters(str: string) {
+    return RegExpPrototypeSymbolReplace(ansi, str, '' as unknown as (substring: string, ...args: any[]) => string);
+}
+
+function rlRefresh(rl: readline.Interface) {
+    // @ts-expect-error "internal" function
+    rl._refreshLine(); // eslint-disable-line @typescript-eslint/no-unsafe-call
+}
+function rlLineInsert(rl: readline.Interface, insert: string, cutoff = 0) {
+    const { line, cursor } = rl;
+    const middle = cursor - cutoff;
+    const lineStart = StringPrototypeSlice(line, 0, middle < 0 ? 0 : middle);
+    const lineEnd = StringPrototypeSlice(line, cursor);
+    ReflectSet(rl, 'line', lineStart + insert + lineEnd);
+    ReflectSet(rl, 'cursor', cursor + insert.length - (middle < 0 ? 0 : cutoff));
+    rlRefresh(rl);
+}
+
 export default {
     async start(singleshotCode?: string, printSingleshot = false) {
         try {
@@ -600,6 +647,75 @@ export default {
                 `${$.yellow+$.dim}[!] Please note that the REPL implementation is still experimental!\n` +
                 `    Don't consider it to be representative of the stability or behavior of Bun overall.${$.reset}`);
             //* Only primordials should be used beyond this point!
+            const multiline = { enabled: false, lines: [] as string[] };
+            process.stdin.on('keypress', (char: string, key: Keypress) => {
+                let modifier: Modifier = Modifier.NONE;
+                if (key.ctrl)  modifier |= Modifier.CTRL;
+                if (key.meta)  modifier |= Modifier.ALT;
+                if (key.shift) modifier |= Modifier.SHIFT;
+
+                if (modifier === Modifier.NONE) {
+                    if (key.name === 'tab') {
+                        // refuse to place the tab in preparation for autocompletion
+                        return rlLineInsert(rl, '', 1);
+                    }
+                }
+                else if (modifier === Modifier.SHIFT) switch (key.name) {
+                    case 'tab': {
+                        rlLineInsert(rl, '    ');
+                    } break;
+                    default: return;
+                }
+                else if (modifier === Modifier.ALT) switch (key.name) {
+                    case 'n': {
+                        if (!multiline.enabled) rlLineInsert(rl, '\n');
+                        else {
+                            const { line, cursor } = rl;
+                            ReflectSet(rl, 'line', StringPrototypeSlice(line, 0, cursor));
+                            rlRefresh(rl);
+                            rl.write('\n');
+                            ReflectSet(rl, 'line', StringPrototypeSlice(line, cursor));
+                            rlRefresh(rl);
+                        }
+                    } break;
+                    case 'm': {
+                        multiline.enabled = !multiline.enabled;
+                        multiline.lines = [];
+                        if (multiline.enabled) {
+                            rl.setPrompt(`${$.purple}(m)${$.reset} ` + rl.getPrompt());
+                            console.log(
+                                StringPadEnd(
+                                    `\r${$.gray}Multi-line mode enabled. End a line with "${$.whiteBright}.${$.gray}" to send.${$.reset}`,
+                                    rl.line.length + rl.getPrompt().length
+                                ) +
+                                StringRepeat('\n', [...StringMatchAll(rl.line, '\n' as unknown as RegExp)].length)
+                            );
+                        }
+                        else {
+                            rl.setPrompt(process.env.BUN_REPL_PROMPT ?? '> ');
+                            console.log(
+                                StringPadEnd(`\r${$.gray}Multi-line mode disabled.${$.reset}`, rl.line.length + rl.getPrompt().length) +
+                                StringRepeat('\n', [...StringMatchAll(rl.line, '\n' as unknown as RegExp)].length)
+                            );
+                        }
+                        rlRefresh(rl);
+                    } break;
+                    default: return;
+                }
+                else if (modifier === Modifier.CTRL) switch (key.name) {
+                    default: return;
+                }
+                else if (modifier === Modifier.ALT_SHIFT) switch (key.name) {
+                    // TODO: readline.moveCursor is broken ("TypeError: undefined is not a function")
+                    case 'up': {
+                        //readline.moveCursor(process.stdin, 0, -1, () => void 0);
+                    } break;
+                    case 'down': {
+                        //readline.moveCursor(process.stdin, 0, 1, () => void 0);
+                    } break;
+                    default: return;
+                }
+            });
             rl.on('SIGINT', () => {
                 if (rl.line.length === 0) rl.close();
                 else {
@@ -618,19 +734,27 @@ export default {
             });
             rl.on('history', newHistory => {
                 history.lines = newHistory;
-            }); 
+            });
             rl.on('line', async line => {
                 line = StringTrim(line);
                 if (!line) return rl.prompt();
-                if (line[0] === '.') {
+                if (
+                    (line[0] === '.' && multiline.lines.length === 0 && !RegExpTest(/\d/, line[1]))
+                ) {
                     switch (line) {
                         case '.help': {
                             console.log(
                                 `Commands & keybinds:\n` +
-                                `    .help     Show this help message.\n` +
-                                `    .info     Print extra REPL information.\n` +
-                                `    .clear    Clear the screen. ${$.gray}(Ctrl+L)${$.reset}\n` +
-                                `    .exit     Exit the REPL. ${$.gray}(Ctrl+C / Ctrl+D)${$.reset}`
+                                `    .help         Show this help message.\n` +
+                                `    .info         Print extra REPL information.\n` +
+                                `    .multiline    Toggle multi-line mode. ${$.gray}(Alt+M)${$.reset}\n` +
+                                `    .clear        Clear the screen. ${$.gray}(Ctrl+L)${$.reset}\n` +
+                                `    .exit         Exit the REPL. ${$.gray}(Ctrl+C / Ctrl+D)${$.reset}\n` +
+                                `\n` +
+                                `    Alt+N         Insert a raw newline at cursor position, works even in single-line mode.\n` +
+                                `      ${$.dim}* In multi-line mode, ${$.noDim+$.gray}Enter${$.reset+$.dim} can only append newline to the end of the input.${$.reset}\n` +
+                                `    Alt+M         Toggle multi-line mode.\n` +
+                                `    Shift+Tab     Insert an indent instead of triggering autocompletions (autocomplete not yet implemented).`
                             );
                         } break;
                         case '.info': {
@@ -655,6 +779,23 @@ export default {
                         } break;
                     }
                 } else {
+                    if (multiline.enabled) {
+                        if (line[line.length - 1] === '.') {
+                            ArrayPush(multiline.lines, StringPrototypeSlice(line, 0, -1));
+                            line = ArrayPrototypeJoin(multiline.lines, '\n');
+                            multiline.lines = [];
+                            rl.setPrompt(`${$.purple}(m)${$.reset} ` + (process.env.BUN_REPL_PROMPT ?? '> '));
+                            //rlRefresh(rl);
+                        } else {
+                            ArrayPush(multiline.lines, line);
+                            const promptLineNo = `${$.dim}${multiline.lines.length + 1} | ${$.reset}`;
+                            const stripped = stripVTControlCharacters(promptLineNo);
+                            const padded = StringPadStart(stripped, stripVTControlCharacters(rl.getPrompt()).length);
+                            rl.setPrompt(StringRepeat(' ', padded.length - stripped.length) + promptLineNo);
+                            rlRefresh(rl);
+                            return;
+                        }
+                    }
                     let code: string = line;
                     try {
                         code = transpiler.preprocess(code);
