@@ -648,6 +648,28 @@ export default {
                 `    Don't consider it to be representative of the stability or behavior of Bun overall.${$.reset}`);
             //* Only primordials should be used beyond this point!
             const multiline = { enabled: false, lines: [] as string[] };
+            const toggleMultiline = () => {
+                multiline.enabled = !multiline.enabled;
+                multiline.lines = [];
+                if (multiline.enabled) {
+                    rl.setPrompt(`${$.purple}(m)${$.reset} ` + rl.getPrompt());
+                    console.log(
+                        StringPadEnd(
+                            `\r${$.gray}Multi-line mode enabled. End a line with "${$.whiteBright}.${$.gray}" to send.${$.reset}`,
+                            rl.line.length + rl.getPrompt().length
+                        ) +
+                                StringRepeat('\n', [...StringMatchAll(rl.line, '\n' as unknown as RegExp)].length)
+                    );
+                }
+                else {
+                    rl.setPrompt(process.env.BUN_REPL_PROMPT ?? '> ');
+                    console.log(
+                        StringPadEnd(`\r${$.gray}Multi-line mode disabled.${$.reset}`, rl.line.length + rl.getPrompt().length) +
+                                StringRepeat('\n', [...StringMatchAll(rl.line, '\n' as unknown as RegExp)].length)
+                    );
+                }
+                rlRefresh(rl);
+            };
             process.stdin.on('keypress', (char: string, key: Keypress) => {
                 let modifier: Modifier = Modifier.NONE;
                 if (key.ctrl)  modifier |= Modifier.CTRL;
@@ -679,26 +701,7 @@ export default {
                         }
                     } break;
                     case 'm': {
-                        multiline.enabled = !multiline.enabled;
-                        multiline.lines = [];
-                        if (multiline.enabled) {
-                            rl.setPrompt(`${$.purple}(m)${$.reset} ` + rl.getPrompt());
-                            console.log(
-                                StringPadEnd(
-                                    `\r${$.gray}Multi-line mode enabled. End a line with "${$.whiteBright}.${$.gray}" to send.${$.reset}`,
-                                    rl.line.length + rl.getPrompt().length
-                                ) +
-                                StringRepeat('\n', [...StringMatchAll(rl.line, '\n' as unknown as RegExp)].length)
-                            );
-                        }
-                        else {
-                            rl.setPrompt(process.env.BUN_REPL_PROMPT ?? '> ');
-                            console.log(
-                                StringPadEnd(`\r${$.gray}Multi-line mode disabled.${$.reset}`, rl.line.length + rl.getPrompt().length) +
-                                StringRepeat('\n', [...StringMatchAll(rl.line, '\n' as unknown as RegExp)].length)
-                            );
-                        }
-                        rlRefresh(rl);
+                        toggleMultiline();
                     } break;
                     default: return;
                 }
@@ -764,6 +767,9 @@ export default {
                                 `    Color mode: ${Bun.enableANSIColors ? `${$.greenBright}Enabled` : 'Disabled'}${$.reset}\n` +
                                 `    Debug mode: ${IS_DEBUG ? `${$.greenBright}Enabled` : $.dim+'Disabled'}${$.reset}`
                             );
+                        } break;
+                        case '.multiline': {
+                            toggleMultiline();
                         } break;
                         case '.clear': {
                             console.clear();
