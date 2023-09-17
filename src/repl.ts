@@ -4,8 +4,8 @@ import { readFileSync, existsSync, readSync } from 'node:fs';
 import os from 'node:os';
 import readline from 'node:readline';
 import $ from './colors';
-import swcrc from './swcrc';
-import SWCTranspiler from './transpiler';
+import babelrc from './babelrc';
+import Transpiler from './transpiler';
 import repl from './module/repl';
 import utl, { $Proxy } from './utl';
 import bun, { serve, write, inspect as bunInspect } from 'bun';
@@ -72,9 +72,7 @@ const StringPrototypeSlice = Function.prototype.call.bind(String.prototype.slice
 const StringPrototypeSplit = Function.prototype.call.bind(String.prototype.split) as Primordial<String, 'split'>;
 const StringPrototypeIncludes = Function.prototype.call.bind(String.prototype.includes) as Primordial<String, 'includes'>;
 const StringReplace = Function.prototype.call.bind(String.prototype.replace) as Primordial<String, 'replace'>;
-const StringPrototypeReplaceAll = Function.prototype.call.bind(String.prototype.replaceAll) as Primordial<String, 'replaceAll'>;
 const ArrayPush = Function.prototype.call.bind(Array.prototype.push) as Primordial<Array<any>, 'push'>;
-const ArrayPrototypePop = Function.prototype.call.bind(Array.prototype.pop) as Primordial<Array<any>, 'pop'>;
 const ArrayPrototypeJoin = Function.prototype.call.bind(Array.prototype.join) as Primordial<Array<any>, 'join'>;
 const ArrayPrototypeFind = Function.prototype.call.bind(Array.prototype.find) as Primordial<Array<any>, 'find'>;
 const ArrayPrototypeFilter = Function.prototype.call.bind(Array.prototype.filter) as Primordial<Array<any>, 'filter'>;
@@ -221,7 +219,7 @@ class REPLServer extends WebSocket {
                         // TODO: attempt to load the module from the global directory if it's not found in the local directory
                         throw {
                             name: 'ResolveError',
-                            message: `Cannot find module "${moduleID}" from "${join(here, swcrc.filename!)}"`,
+                            message: `Cannot find module "${moduleID}" from "${join(here, babelrc.filename!)}"`,
                             specifier: moduleID
                         };
                     }
@@ -281,7 +279,7 @@ class REPLServer extends WebSocket {
                     descriptor.get = getter;
                     Object.defineProperty(GLOBAL, module.slice(4), descriptor);
                 }
-                
+
                 // Yes, if someone types a 0xFFFF characters line, they will fill up the buffer.
                 // But that's very unlikely to happen, and if it does, it will just cutoff the line.
                 // Anyway this just a temporary workaround for https://github.com/oven-sh/bun/issues/5267
@@ -403,7 +401,7 @@ class REPLServer extends WebSocket {
         });
     }
     /** Run a snippet of code in the REPL */
-    async eval(code: string, topLevelAwaited = false, extraOut?: { errored?: boolean, noPrintError?: boolean }): Promise<string> {
+    async eval(code: string, extraOut?: { errored?: boolean, noPrintError?: boolean }): Promise<string> {
         debuglog(`transpiled code: ${StringTrim(code)}`);
         const { result, wasThrown: thrown } = await this.rawEval(code);
         let remoteObj: EvalRemoteObject = result;
@@ -414,16 +412,14 @@ class REPLServer extends WebSocket {
             if (!result.objectId) throw new EvalError(`Received non-null object without objectId: ${JSONStringify(result)}`);
             if (result.className === 'Promise') {
                 if (!result.preview) throw new EvalError(`Received Promise object without preview: ${JSONStringify(result)}}`);
-                if (topLevelAwaited) {
-                    const awaited = await this.request('Runtime.awaitPromise', { promiseObjectId: result.objectId, generatePreview: false });
-                    remoteObj = awaited.result;
-                    remoteObj.wasThrown = awaited.wasThrown;
-                    if (remoteObj.type === 'undefined') {
-                        console.warn(
-                            $.yellow+$.dim+'[!] REPL top-level await is still very experimental and prone to failing on complex code snippets.\n' +
-                            '    You are seeing this because top-level await usage was detected with undefined as the result, if that was expected, you can ignore this.'+$.reset
-                        );
-                    }
+                const awaited = await this.request('Runtime.awaitPromise', { promiseObjectId: result.objectId, generatePreview: false });
+                remoteObj = awaited.result;
+                remoteObj.wasThrown = awaited.wasThrown;
+                if (remoteObj.type === 'undefined') {
+                    console.warn(
+                        $.yellow+$.dim+'[!] REPL top-level await is still very experimental and prone to failing on complex code snippets.\n' +
+                        '    You are seeing this because top-level await usage was detected with undefined as the result, if that was expected, you can ignore this.'+$.reset
+                    );
                 }
                 if (result.preview.properties && ArrayPrototypeFind(result.preview.properties, p => p.name === 'status')?.value === 'rejected') {
                     remoteObj.wasRejectedPromise = true;
@@ -459,7 +455,7 @@ class REPLServer extends WebSocket {
                 if (v?.name === 'ResolveError')
                     return \`${$.red}ResolveError${$.reset}${$.dim}: ${$.reset}${$.whiteBright}\${StringReplace(
                     SafeGet(v, 'message') || \`Failed to resolve import "?" from "?"\`, / ".+" from ".+"$/,
-                    \` ${$.blueBright}"\${SafeGet(v, 'specifier') ?? '<unresolved>'}"${$.whiteBright} from ${$.cyan+cwd()}/${swcrc.filename!}\`
+                    \` ${$.blueBright}"\${SafeGet(v, 'specifier') ?? '<unresolved>'}"${$.whiteBright} from ${$.cyan+cwd()}/${babelrc.filename!}\`
                 )}${$.reset}\`;
                 if (${remoteObj.subtype === 'error'}) return bunInspect(v, { colors: ${Bun.enableANSIColors} });
                 return SafeInspect(v, this.repl?.writer?.options ?? { colors: ${Bun.enableANSIColors}, showProxy: true });
@@ -505,25 +501,6 @@ async function tryLoadHistory(...dir: string[]) {
         if (IS_DEBUG) console.error(err);
         return null;
     }
-}
-
-// This only supports the most basic var/let/const declarations
-const JSVarDeclRegex = /(?<keyword>var|let|const)\s+(?<varname>(?:[$_\p{ID_Start}]|\\u[\da-fA-F]{4})(?:[$\u200C\u200D\p{ID_Continue}]|\\u[\da-fA-F]{4})*)/gu;
-
-// Wrap the code in an async function if it contains top level await
-// Make sure to return the result of the last expression
-function tryProcessTopLevelAwait(src: string) {
-    const lines = StringPrototypeSplit(src, '\n' as unknown as RegExp);
-    if (!StringTrim(lines[lines.length - 1])) ArrayPrototypePop(lines);
-    lines[lines.length - 1] = 'return ' + lines[lines.length - 1] + ';})();';
-    lines[0] = '(async()=>{' + lines[0];
-    let hoisted = '';
-    const transformed = StringPrototypeReplaceAll(ArrayPrototypeJoin(lines, '\n'), JSVarDeclRegex, (m, _1, _2, idx, str, groups) => {
-        const { keyword, varname } = groups as { keyword: string, varname: string };
-        hoisted += `${keyword === 'const' ? 'let' : keyword} ${varname};`;
-        return varname;
-    });
-    return hoisted + transformed;
 }
 
 async function tryGetPackageVersion() {
@@ -577,7 +554,7 @@ export default {
             await repl.ready;
             debuglog('REPL server initialized.');
             // TODO: How to make Bun transpiler not dead-code-eliminate lone constants like "5"?
-            const transpiler = new SWCTranspiler();
+            const transpiler = new Transpiler();
             debuglog('Transpiler initialized.');
             /*new Bun.Transpiler({
                 target: 'bun',
@@ -589,27 +566,26 @@ export default {
                 jsxOptimizationInline: false,
             });*/
             if (singleshotCode) {
-                let code: string = singleshotCode;
+                let code: string = singleshotCode, postCode: string;
                 try {
-                    code = transpiler.preprocess(code);
-                    code = transpiler.transpile(code);
-                    code = transpiler.postprocess(code);
+                    const r = transpiler.transpile(code);
+                    code = r.code
+                    postCode = r.postCode
                 } catch (e) {
                     const err = e as Error;
                     console.error((err?.message ?? 'Unknown transpiler error.').split('\nCaused by:\n')[0].trim());
                     return exit(1);
                 }
-                let hasTLA = false;
-                if (StringPrototypeIncludes(code, 'await')) {
-                    hasTLA = true;
-                    code = tryProcessTopLevelAwait(code);
-                }
                 const extraInfo = { errored: false, noPrintError: false };
-                const evaled = await repl.eval(/* ts */`${code}`, hasTLA, extraInfo);
+                let evaled = await repl.eval(code, extraInfo);
                 if (!extraInfo.noPrintError) {
                     if (extraInfo.errored) console.error(evaled);
                     else if (printSingleshot) console.log(evaled);
                 } else if (!extraInfo.errored && printSingleshot) console.log(evaled);
+                evaled = await repl.eval(postCode, extraInfo);
+                if (!extraInfo.noPrintError) {
+                    if (extraInfo.errored) console.error(evaled);
+                }
                 return exit(0);
             }
             const history = await loadHistoryData();
@@ -802,11 +778,11 @@ export default {
                             return;
                         }
                     }
-                    let code: string = line;
+                    let code: string = line, postCode: string;
                     try {
-                        code = transpiler.preprocess(code);
-                        code = transpiler.transpile(code);
-                        code = transpiler.postprocess(code);
+                        const r = transpiler.transpile(code);
+                        code = r.code
+                        postCode = r.postCode
                     } catch (e) {
                         const err = e as Error;
                         if (err.stack?.includes('@swc/core')) {
@@ -826,17 +802,16 @@ export default {
                         rl.prompt();
                         return;
                     }
-                    let hasTLA = false;
-                    if (StringPrototypeIncludes(code, 'await')) {
-                        hasTLA = true;
-                        code = tryProcessTopLevelAwait(code);
-                    }
                     const extraInfo = { errored: false, noPrintError: false };
-                    const evaled = await repl.eval(/* ts */`${code}`, hasTLA, extraInfo);
+                    let evaled = await repl.eval(code, extraInfo);
                     if (!extraInfo.noPrintError) {
                         if (extraInfo.errored) console.error(evaled);
                         else console.log(evaled);
                     } else if (!extraInfo.errored) console.log(evaled);
+                    evaled = await repl.eval(postCode, extraInfo);
+                    if (!extraInfo.noPrintError) {
+                        if (extraInfo.errored) console.error(evaled);
+                    }
                 }
                 rl.prompt();
             });
