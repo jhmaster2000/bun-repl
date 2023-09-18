@@ -443,6 +443,22 @@ class REPLServer extends WebSocket {
                 ?? { colors: Bun.enableANSIColors, showProxy: true }
             );
         }
+        //! bug workaround, Infinity and NaN are being passed as null to Runtime.callFunctionOn (?)
+        // also -0 is being passed as 0
+        if (remoteObj.type === 'number') {
+            if (!remoteObj.description) throw new EvalError(`Received Number value without description: ${JSONStringify(remoteObj)}`);
+            let value = remoteObj.value as number;
+            if (remoteObj.description === 'Infinity') value = Infinity;
+            else if (remoteObj.description === '-Infinity') value = -Infinity;
+            else if (remoteObj.description === 'NaN') value = NaN;
+            else if (remoteObj.description === '-0') value = -0;
+            ReflectSet(GLOBAL, remoteObj.wasThrown ? '_error' : '_', value);
+            return (remoteObj.wasThrown ? $.red + 'Uncaught ' + $.reset : '') + SafeInspect(value,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                ReflectGet(GLOBAL, 'repl')?.writer?.options as utl.InspectOptions
+                ?? { colors: Bun.enableANSIColors, showProxy: true }
+            );
+        }
 
         const { wasThrown } = remoteObj;
         const REPL_INTERNALS = '@@bunReplInternals';
