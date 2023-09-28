@@ -579,6 +579,9 @@ function rlLineInsert(rl: readline.Interface, insert: string, cutoff = 0) {
     rlRefresh(rl);
 }
 
+const isMac = process.platform === 'darwin';
+const metaKey = (key: string) => (isMac ? 'Meta+' : 'Alt+') + key + (isMac ? '' : ' ');
+
 export default {
     async start(singleshotCode?: string, printSingleshot = false) {
         try {
@@ -771,14 +774,18 @@ export default {
                                 `Commands & keybinds:\n` +
                                 `    .help         Show this help message.\n` +
                                 `    .info         Print extra REPL information.\n` +
-                                `    .multiline    Toggle multi-line mode. ${$.gray}(Alt+M)${$.reset}\n` +
+                                `    .multiline    Toggle multi-line mode. ${$.gray}(${metaKey('M').trim()})${$.reset}\n` +
                                 `    .clear        Clear the screen. ${$.gray}(Ctrl+L)${$.reset}\n` +
                                 `    .exit         Exit the REPL. ${$.gray}(Ctrl+C / Ctrl+D)${$.reset}\n` +
                                 `\n` +
-                                `    Alt+N         Insert a raw newline at cursor position, works even in single-line mode.\n` +
+                                `    ${metaKey('N')}        Insert a raw newline at cursor position, works even in single-line mode.\n` +
                                 `      ${$.dim}* In multi-line mode, ${$.noDim+$.gray}Enter${$.reset+$.dim} can only append newline to the end of the input.${$.reset}\n` +
-                                `    Alt+M         Toggle multi-line mode.\n` +
-                                `    Shift+Tab     Insert an indent instead of triggering autocompletions (autocomplete not yet implemented).`
+                                `    ${metaKey('M')}        Toggle multi-line mode.\n` +
+                                `    Shift+Tab     Insert an indent instead of triggering autocompletions (autocomplete not yet implemented).` +
+                                (!isMac ? '' : (
+                                    `\n\n${$.dim}[?] MacOS users: The ${$.noDim+$.gray}Meta${$.reset+$.dim} key defaults to ${$.noDim+$.gray}Esc${$.reset+$.dim}, ` +
+                                    `but may also be mapped to ${$.noDim+$.gray}Option${$.reset+$.dim} based on your terminal settings.${$.reset}`
+                                ))
                             );
                         } break;
                         case '.info': {
