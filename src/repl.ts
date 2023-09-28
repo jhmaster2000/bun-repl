@@ -639,6 +639,11 @@ export default {
             }
             if (NO_HISTORY) debuglog('Skipped history file loading due to --no-history flag.');
             else debuglog(`REPL history data loaded: (${history.lines.length} lines) ${history.path}`);
+            
+            if (!process.stdin.isTTY) {
+                console.error('[!] Failed to start REPL interface! Is the command running in an interactive terminal?');
+                return exit(1);
+            }
             const rl = readline.createInterface({
                 input: process.stdin,
                 output: process.stdout,
@@ -647,12 +652,12 @@ export default {
                 prompt: process.env.BUN_REPL_PROMPT ?? '> ',
                 historySize: historySize,
                 history: history.lines,
-            // completions currently cause a panic "FilePoll.register failed: 17"
-            //completer(line: string) {
-            //    const completions = ['hello', 'world'];
-            //    const hits = completions.filter(c => c.startsWith(line));
-            //    return [hits.length ? hits : completions, line];
-            //}
+                // completions currently cause a panic "FilePoll.register failed: 17"
+                //completer(line: string) {
+                //    const completions = ['hello', 'world'];
+                //    const hits = completions.filter(c => c.startsWith(line));
+                //    return [hits.length ? hits : completions, line];
+                //}
             });
             debuglog('readline interface created.');
             process.on('exit', () => {
