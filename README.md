@@ -1,6 +1,9 @@
-# bun-repl [![GitHub version][github-image]][github-url] [![GitHub code size in bytes][size-image]][github-url] [![license][license-image]][license-url]
+# Bun REPL [![GitHub version][github-image]][github-url] [![GitHub code size in bytes][size-image]][github-url] [![license][license-image]][license-url]
 
 Experimental REPL for [Bun](https://github.com/oven-sh/bun)
+
+> **NOTICE:** This package is planned to be embedded directly into Bun sometime soon,
+> this must be taken into consideration if making contributions to the package.
 
 ## Install
 You can use it directly via Bun with:
@@ -18,13 +21,13 @@ The source code repository latest commit may contain code not yet in any release
 
 * Seamless JavaScript & TypeScript execution
 * Single run CLI flags `--eval` and `--print`
+* Multi-line input (`.multiline`)
 * Top level import syntax supported (`import fs from 'fs'`)
 * Top level await (experimental)
 * Lazy-loaded builtin modules as preloaded global variables. (including Bun modules! Try `ffi` or `sqlite`)
 * Import either CommonJS or ESM local files and packages into the REPL
 * Node.js REPL special underscore variables provided (`_` and `_error`)
 * Resistent to global object modification (output quality may decrease but never crash)
-* Node.js `repl` module polyfill
 * Persistent execution history (`↑` `↓`)
 * REPL Commands (`.command`)
 
@@ -38,28 +41,9 @@ Type `.help` within the REPL for a list of commands.
 
 Press `↑` and `↓` to travel up or down the execution history.
 
-### The `repl` module polyfill
-`bun repl` exposes a special variable `repl` which provides access to a REPL interface like the Node.js REPL (also accessible through import/require of `repl` or `node:repl`).
-
-Currently only a subset of the `node:repl` API is implemented, see below:
-* `repl` global object ✅
-    * `start()` function ❌
-    * `writer()` function ✅ (Partial)
-        * `options` object ✅
-    * `repl` property ❌
-    * `builtinModules` array ✅
-    * `REPL_MODE_SLOPPY` symbol ✅
-    * `REPL_MODE_STRICT` symbol ✅
-    * `REPLServer` class ❌
-    * `Recoverable` class ❌
+`bun repl` exposes the special variable `repl` which provides access to a REPL interface like the Node.js REPL (also accessible through import/require of `repl` or `node:repl`).
 
 You can use `repl.writer.options` like you would in Node.js REPL to customize the live output of the running REPL.
-
-## Known issues & limitations
-PRs are welcome to help fix any of the items below or anything else.
-
-* Top level await is only *partially* supported. Needs improvement.
-* Multi-line inputs are not supported.
 
 [github-url]:https://github.com/jhmaster2000/bun-repl
 [github-image]:https://img.shields.io/github/package-json/v/jhmaster2000/bun-repl.svg?color=gray
