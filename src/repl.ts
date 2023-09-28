@@ -874,6 +874,7 @@ export default {
                     if (loadingFile) rl.setPrompt('');
                     let code: string = line;
                     try {
+                        if (RegExpTest(/^\s*{/, code) && !RegExpTest(/;\s*$/, code)) code = `(${code})`;
                         code = transpiler.preprocess(code);
                         code = transpiler.transpile(code);
                         code = transpiler.postprocess(code);
