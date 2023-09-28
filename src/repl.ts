@@ -642,6 +642,7 @@ export default {
             }
             if (NO_HISTORY) debuglog('Skipped history file loading due to --no-history flag.');
             else debuglog(`REPL history data loaded: (${history.lines.length} lines) ${history.path}`);
+            const sessionHistoryNoErrors: string[] = [];
             
             if (!process.stdin.isTTY) {
                 console.error('[!] Failed to start REPL interface! Is the command running in an interactive terminal?');
@@ -762,19 +763,22 @@ export default {
             rl.on('history', newHistory => {
                 history.lines = newHistory;
             });
-            rl.on('line', async line => {
+            rl.on('line', async (line, { loadingFile = false } = {}) => {
                 line = StringTrim(line);
                 if (!line) return rl.prompt();
                 if (
-                    (line[0] === '.' && multiline.lines.length === 0 && !RegExpTest(/\d/, line[1]))
+                    !loadingFile && (line[0] === '.' && multiline.lines.length === 0 && !RegExpTest(/\d/, line[1]))
                 ) {
-                    switch (line) {
+                    const replCmd = StringPrototypeSplit(line, /\s+/g);
+                    switch (replCmd[0]) {
                         case '.help': {
                             console.log(
                                 `Commands & keybinds:\n` +
                                 `    .help         Show this help message.\n` +
                                 `    .info         Print extra REPL information.\n` +
                                 `    .multiline    Toggle multi-line mode. ${$.gray}(${metaKey('M').trim()})${$.reset}\n` +
+                                `    .save         Save all successful commands evaluated in this REPL session to a file.\n` +
+                                `    .load         Load a file into the REPL session. ${$.yellow}(Experimental)${$.reset}\n` +
                                 `    .clear        Clear the screen. ${$.gray}(Ctrl+L)${$.reset}\n` +
                                 `    .exit         Exit the REPL. ${$.gray}(Ctrl+C / Ctrl+D)${$.reset}\n` +
                                 `\n` +
@@ -799,6 +803,42 @@ export default {
                         case '.multiline': {
                             toggleMultiline();
                         } break;
+                        case '.load': {
+                            const filepath = replCmd[1];
+                            if (!filepath) {
+                                console.log(`${$.red}Missing argument, usage: ${$.whiteBright}.load <filepath>${$.reset}`);
+                                break;
+                            }
+                            const resolved = pathresolve(filepath);
+                            try {
+                                const contents = readFileSync(resolved, 'utf8');
+                                console.warn(`${$.yellow+$.dim}[!] Loading files into the REPL is experimental and may not work as expected.${$.reset}`);
+                                rl.emit('line', contents, { loadingFile: true });
+                            } catch (e) {
+                                const err = e as Error;
+                                console.error(`Failed to load file ${$.cyan}${resolved}${$.red}: ${err.message ?? 'Unknown error'}${$.reset}`);
+                                if (IS_DEBUG) console.error(err);
+                                break;
+                            }
+                        } break;
+                        case '.save': {
+                            const filepath = replCmd[1];
+                            if (!filepath) {
+                                console.log(`${$.red}Missing argument, usage: ${$.whiteBright}.save <filepath>${$.reset}`);
+                                break;
+                            }
+                            const resolved = pathresolve(filepath);
+                            const contents = ArrayPrototypeJoin(sessionHistoryNoErrors, '\n');
+                            try {
+                                await write(resolved, contents);
+                            } catch (e) {
+                                const err = e as Error;
+                                console.error(`Failed to save REPL session to ${$.cyan}${resolved}${$.red}: ${err.message ?? 'Unknown error'}${$.reset}`);
+                                if (IS_DEBUG) console.error(err);
+                                break;
+                            }
+                            console.log(`Saved REPL session to: ${$.cyan}${resolved}${$.reset+$.dim} (${contents.length} chars)${$.reset}`);
+                        } break;
                         case '.clear': {
                             console.clear();
                         } break;
@@ -813,7 +853,7 @@ export default {
                         } break;
                     }
                 } else {
-                    if (multiline.enabled) {
+                    if (multiline.enabled && !loadingFile) {
                         if (line[line.length - 1] === '.') {
                             ArrayPush(multiline.lines, StringPrototypeSlice(line, 0, -1));
                             line = ArrayPrototypeJoin(multiline.lines, '\n');
@@ -830,6 +870,8 @@ export default {
                             return;
                         }
                     }
+                    const backupPrompt = rl.getPrompt();
+                    if (loadingFile) rl.setPrompt('');
                     let code: string = line;
                     try {
                         code = transpiler.preprocess(code);
@@ -864,8 +906,15 @@ export default {
                     const evaled = await repl.eval(/* ts */`${code}`, hasTLA, extraInfo);
                     if (!extraInfo.noPrintError) {
                         if (extraInfo.errored) console.error(evaled);
-                        else console.log(evaled);
-                    } else if (!extraInfo.errored) console.log(evaled);
+                        else {
+                            console.log(evaled);
+                            ArrayPush(sessionHistoryNoErrors, line);
+                        }
+                    } else if (!extraInfo.errored) {
+                        console.log(evaled);
+                        ArrayPush(sessionHistoryNoErrors, line);
+                    }
+                    if (loadingFile) rl.setPrompt(backupPrompt);
                 }
                 rl.prompt();
             });
