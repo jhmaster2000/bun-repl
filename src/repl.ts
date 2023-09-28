@@ -832,8 +832,9 @@ export default {
                         const err = e as Error;
                         if (err.stack?.includes('@swc/core')) {
                             console.error(
-                                'Internal failure due to global builtins tampering, this is not a bug but a temporary limitation of the REPL.\n' +
-                                'Please do not report this and avoid tampering with the global builtins in the REPL.'
+                                'Internal failure due to global builtins tampering, this is likely not a bug but a temporary limitation of the REPL.\n' +
+                                'Please do not report this and avoid tampering with the global builtins in the REPL.\n' +
+                                'If you didn\'t tamper with the global builtins, please report this as a bug.'
                             );
                             if (IS_DEBUG) console.error(e);
                             exit(0);
